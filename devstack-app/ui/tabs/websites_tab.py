@@ -11,14 +11,12 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFrame,
     QScrollArea,
-    QGridLayout,
     QMessageBox,
     QComboBox,
     QApplication,
 )
 from core.config import load_sites, load_settings, save_settings
 from core.installer import discover_php_versions
-from ui.styles import density_button_height, repolish, set_status_badge
 
 class WebsitesTab(QWidget):
     def __init__(self, main_window):
@@ -49,7 +47,7 @@ class WebsitesTab(QWidget):
         # Global Active PHP selector at the header
         self.php_selector_box = QFrame()
         self.php_selector_box.setObjectName("Panel")
-        self.php_selector_box.setStyleSheet("background-color: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.05); border-radius: 8px;")
+        self.php_selector_box.setStyleSheet("background-color: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;")
         php_sel_layout = QHBoxLayout(self.php_selector_box)
         php_sel_layout.setContentsMargins(12, 8, 12, 8)
         php_sel_layout.setSpacing(8)
@@ -71,32 +69,32 @@ class WebsitesTab(QWidget):
         header_row.addWidget(self.php_selector_box)
         self.main_layout.addLayout(header_row)
 
-        # 2. Scrollable Sites Grid
+        # 2. Scrollable Sites Compact List
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
-        self.grid_content = QWidget()
-        self.grid_content.setObjectName("TabPage")
-        self.grid_layout = QGridLayout(self.grid_content)
-        self.grid_layout.setContentsMargins(0, 0, 0, 0)
-        self.grid_layout.setHorizontalSpacing(16)
-        self.grid_layout.setVerticalSpacing(16)
+        self.list_content = QWidget()
+        self.list_content.setObjectName("TabPage")
+        self.list_layout = QVBoxLayout(self.list_content)
+        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setSpacing(10)
+        self.list_layout.addStretch(1) # Bottom spacer to force list items upwards
         
-        self.scroll.setWidget(self.grid_content)
+        self.scroll.setWidget(self.list_content)
         self.main_layout.addWidget(self.scroll, 1)
 
         # Populate
         self.refresh_sites()
 
     def refresh_sites(self):
-        # 0. Intelligent Auto-Scanner for existing htdocs directories
+        # 0. Scan htdocs dynamically for auto-registration
         self._scan_and_import()
 
-        # Clear previous grid items
-        while self.grid_layout.count():
-            item = self.grid_layout.takeAt(0)
+        # Clear previous list items (except the bottom stretch spacer)
+        for i in reversed(range(self.list_layout.count() - 1)):
+            item = self.list_layout.takeAt(i)
             widget = item.widget()
             if widget:
                 widget.deleteLater()
@@ -132,17 +130,17 @@ class WebsitesTab(QWidget):
             empty_title.setStyleSheet("font-weight: bold; font-size: 16px; color: #555555;")
             empty_layout.addWidget(empty_title, 0, Qt.AlignCenter)
 
-            empty_desc = QLabel("Visit the App Store to download and extract WordPress or Drupal onto your DevStack in one-click!")
+            empty_desc = QLabel("Visit the App Store to download and extract WordPress, Laravel, or Custom PHP onto your DevStack!")
             empty_desc.setObjectName("MetaText")
             empty_desc.setStyleSheet("text-align: center;")
             empty_layout.addWidget(empty_desc, 0, Qt.AlignCenter)
 
-            self.grid_layout.addWidget(empty_frame, 0, 0)
+            self.list_layout.insertWidget(0, empty_frame)
             return
 
         for i, site in enumerate(sites):
-            card = SiteCard(site, self)
-            self.grid_layout.addWidget(card, i // 2, i % 2)
+            row = SiteRow(site, self)
+            self.list_layout.insertWidget(i, row)
 
     def _scan_and_import(self):
         settings = load_settings()
@@ -218,23 +216,31 @@ class WebsitesTab(QWidget):
         restart(self.main_window.get_stack_root())
 
 
-class SiteCard(QFrame):
+class SiteRow(QFrame):
     def __init__(self, site, tab):
         super().__init__()
         self.site = site
         self.tab = tab
         self.setObjectName("Panel")
-        self._setup_card()
+        self.setStyleSheet("""
+            QFrame#Panel {
+                background-color: rgba(255, 255, 255, 0.02);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 12px;
+            }
+            QFrame#Panel:hover {
+                background-color: rgba(255, 255, 255, 0.04);
+                border-color: rgba(229, 91, 60, 0.25);
+            }
+        """)
+        self._setup_row()
 
-    def _setup_card(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+    def _setup_row(self):
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(16)
 
-        # Card Title Row
-        title_row = QHBoxLayout()
-        title_row.setSpacing(10)
-
+        # 1. App Glyph Icon
         icon_map = {
             "wordpress": "📝",
             "drupal": "💧",
@@ -242,133 +248,113 @@ class SiteCard(QFrame):
             "custom_php": "⚡"
         }
         app_icon = QLabel(icon_map.get(self.site.get("app_id"), "🌐"))
-        app_icon.setStyleSheet("font-size: 24px;")
-        title_row.addWidget(app_icon)
+        app_icon.setStyleSheet("font-size: 20px;")
+        layout.addWidget(app_icon)
 
+        # 2. Site Title and Folder Name block
         title_block = QVBoxLayout()
         title_block.setSpacing(2)
         
         site_name = QLabel(self.site.get("site_title", "My Site"))
-        site_name.setStyleSheet("font-weight: bold; font-size: 14px;")
+        site_name.setStyleSheet("font-weight: bold; font-size: 13px; color: #ffffff;")
         title_block.addWidget(site_name)
 
         folder_name = QLabel(f"htdocs/{self.site.get('folder')}")
-        folder_name.setObjectName("MetaText")
-        folder_name.setStyleSheet("font-size: 11px;")
+        folder_name.setStyleSheet("font-size: 10px; color: rgba(255, 255, 255, 0.45);")
         title_block.addWidget(folder_name)
-        title_row.addLayout(title_block, 1)
+        layout.addLayout(title_block, 2)
 
-        # App type badge
-        app_badge = QLabel(self.site.get("app_name", "CMS").upper())
-        app_badge.setObjectName("StatusBadge")
-        app_badge.setStyleSheet("color: #E55B3C; background-color: rgba(229, 91, 60, 0.08); font-size: 9px; font-weight: bold; border: none; padding: 2px 6px;")
-        title_row.addWidget(app_badge, 0, Qt.AlignTop)
-
-        layout.addLayout(title_row)
-
-        # Separator line
-        sep = QFrame()
-        sep.setObjectName("SidebarSeparator")
-        sep.setFixedHeight(1)
-        layout.addWidget(sep)
-
-        # Details list
-        details_layout = QGridLayout()
-        details_layout.setSpacing(6)
-
-        def add_detail_row(row_idx, label, value_widget):
-            lbl = QLabel(label)
-            lbl.setObjectName("MetaText")
-            lbl.setStyleSheet("font-weight: bold; font-size: 11px;")
-            details_layout.addWidget(lbl, row_idx, 0)
-            details_layout.addWidget(value_widget, row_idx, 1)
-
-        # Admin Username with copy
-        username_row = QHBoxLayout()
-        username_row.setSpacing(4)
-        username_val = QLabel(self.site.get("admin_user", "admin"))
-        username_val.setStyleSheet("font-size: 11px;")
-        username_row.addWidget(username_val, 1)
-        
-        copy_user_btn = QPushButton("📋")
-        copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 10px; cursor: pointer; max-width: 20px;")
-        copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(self.site.get("admin_user", "admin"), "Username"))
-        username_row.addWidget(copy_user_btn)
-        
-        username_container = QWidget()
-        username_container.setLayout(username_row)
-        add_detail_row(0, "Admin Username:", username_container)
-
-        # Admin Password with copy
-        password_row = QHBoxLayout()
-        password_row.setSpacing(4)
-        
-        self.password_val = QLabel("••••••••")
-        self.password_val.setStyleSheet("font-size: 11px;")
-        password_row.addWidget(self.password_val, 1)
-
-        reveal_btn = QPushButton("👁️")
-        reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 10px; cursor: pointer; max-width: 20px;")
-        reveal_btn.clicked.connect(self._toggle_password_visibility)
-        password_row.addWidget(reveal_btn)
-
-        copy_pass_btn = QPushButton("📋")
-        copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 10px; cursor: pointer; max-width: 20px;")
-        copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(self.site.get("admin_pass", "admin123"), "Password"))
-        password_row.addWidget(copy_pass_btn)
-
-        password_container = QWidget()
-        password_container.setLayout(password_row)
-        add_detail_row(1, "Admin Password:", password_container)
-
-        # PHP & CMS Version details
+        # 3. Core Engine & Configured PHP Badges
         cms_ver = self._detect_cms_version()
-        cms_ver_lbl = QLabel(cms_ver)
-        cms_ver_lbl.setStyleSheet("font-size: 11px;")
-        add_detail_row(2, "Core Version:", cms_ver_lbl)
+        app_badge = QLabel(f"{self.site.get('app_name', 'CMS')} ({cms_ver})")
+        app_badge.setStyleSheet("color: #E55B3C; background-color: rgba(229, 91, 60, 0.08); font-size: 10px; font-weight: bold; border-radius: 4px; padding: 4px 8px; border: none;")
+        layout.addWidget(app_badge)
 
         php_ver_lbl = QLabel(self.site.get("php_version", "PHP 8.2"))
-        php_ver_lbl.setStyleSheet("font-size: 11px;")
-        add_detail_row(3, "Configured PHP:", php_ver_lbl)
+        php_ver_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc; background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; padding: 4px 8px;")
+        layout.addWidget(php_ver_lbl)
 
-        layout.addLayout(details_layout)
+        # 4. Inline Console Credentials panel
+        creds_layout = QHBoxLayout()
+        creds_layout.setContentsMargins(6, 2, 6, 2)
+        creds_layout.setSpacing(6)
 
-        # Action Buttons row
-        btn_row = QHBoxLayout()
-        btn_row.setSpacing(6)
+        user_val = self.site.get("admin_user", "admin")
+        user_lbl = QLabel(f"👤 {user_val}")
+        user_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc;")
+        creds_layout.addWidget(user_lbl)
 
-        open_btn = QPushButton("🌐 Open Site")
+        copy_user_btn = QPushButton("📋")
+        copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        copy_user_btn.setToolTip("Copy Username")
+        copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(user_val, "Username"))
+        creds_layout.addWidget(copy_user_btn)
+
+        # Divider
+        div = QFrame()
+        div.setFrameStyle(QFrame.VLine | QFrame.Plain)
+        div.setStyleSheet("color: rgba(255,255,255,0.08); max-width: 1px;")
+        creds_layout.addWidget(div)
+
+        pass_val = self.site.get("admin_pass", "admin123")
+        self.password_lbl = QLabel("🔑 ••••••••")
+        self.password_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc;")
+        creds_layout.addWidget(self.password_lbl)
+
+        reveal_btn = QPushButton("👁️")
+        reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        reveal_btn.setToolTip("Reveal/Hide Password")
+        reveal_btn.clicked.connect(self._toggle_password_visibility)
+        creds_layout.addWidget(reveal_btn)
+
+        copy_pass_btn = QPushButton("📋")
+        copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        copy_pass_btn.setToolTip("Copy Password")
+        copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(pass_val, "Password"))
+        creds_layout.addWidget(copy_pass_btn)
+
+        creds_panel = QFrame()
+        creds_panel.setStyleSheet("background-color: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 6px;")
+        creds_panel.setLayout(creds_layout)
+        layout.addWidget(creds_panel, 2)
+
+        # 5. Compact Icon Action row
+        action_layout = QHBoxLayout()
+        action_layout.setSpacing(6)
+
+        open_btn = QPushButton("🌐 Open")
         open_btn.setObjectName("PrimaryButton")
-        open_btn.setStyleSheet("font-size: 11px; padding: 4px 8px;")
+        open_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
         open_btn.clicked.connect(self._open_site)
-        btn_row.addWidget(open_btn, 1)
+        action_layout.addWidget(open_btn)
 
         admin_btn = QPushButton("🔑 Admin")
         admin_btn.setObjectName("DefaultButton")
-        admin_btn.setStyleSheet("font-size: 11px; padding: 4px 8px;")
+        admin_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
         admin_btn.clicked.connect(self._open_admin)
-        btn_row.addWidget(admin_btn, 1)
+        action_layout.addWidget(admin_btn)
 
         folder_btn = QPushButton("📁 Files")
         folder_btn.setObjectName("DefaultButton")
-        folder_btn.setStyleSheet("font-size: 11px; padding: 4px 8px;")
+        folder_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
         folder_btn.clicked.connect(self._open_folder)
-        btn_row.addWidget(folder_btn, 1)
+        action_layout.addWidget(folder_btn)
 
         delete_btn = QPushButton("🗑️")
         delete_btn.setObjectName("DefaultButton")
-        delete_btn.setStyleSheet("font-size: 11px; padding: 4px 6px; color: #E55B3C; max-width: 32px;")
-        delete_btn.setToolTip("Delete this website")
+        delete_btn.setStyleSheet("font-size: 10px; padding: 4px 6px; color: #E55B3C; max-width: 24px;")
+        delete_btn.setToolTip("Delete Website")
         delete_btn.clicked.connect(self._delete_site_handler)
-        btn_row.addWidget(delete_btn)
+        action_layout.addWidget(delete_btn)
 
-        layout.addLayout(btn_row)
+        layout.addLayout(action_layout, 2)
 
     def _toggle_password_visibility(self):
-        if self.password_val.text() == "••••••••":
-            self.password_val.setText(self.site.get("admin_pass", "admin123"))
+        pass_val = self.site.get("admin_pass", "admin123")
+        if self.password_lbl.text() == "🔑 ••••••••":
+            self.password_lbl.setText(f"🔑 {pass_val}")
         else:
-            self.password_val.setText("••••••••")
+            self.password_lbl.setText("🔑 ••••••••")
 
     def _copy_to_clipboard(self, text, label):
         clipboard = QApplication.clipboard()
@@ -376,7 +362,6 @@ class SiteCard(QFrame):
         self.tab.main_window.statusBar().showMessage(f"{label} copied to clipboard!", 2000)
 
     def _detect_cms_version(self) -> str:
-        # Programmatically parse version file if exists
         stack_root = Path(self.tab.main_window.get_stack_root())
         site_path = stack_root / "htdocs" / self.site.get("folder")
         
@@ -387,15 +372,15 @@ class SiteCard(QFrame):
                     content = version_file.read_text(encoding="utf-8")
                     for line in content.splitlines():
                         if "$wp_version =" in line:
-                            return "WP v" + line.split("=")[1].strip(" ;'\"")
+                            return "v" + line.split("=")[1].strip(" ;'\"")
                 except Exception:
                     pass
             return "WordPress core"
         elif self.site.get("app_id") == "drupal":
-            return "Drupal core"
+            return "core"
         elif self.site.get("app_id") == "laravel":
-            return "Laravel Framework"
-        return "Custom PHP"
+            return "v11.x"
+        return "v1.0"
 
     def _open_site(self):
         nginx_port = int(self.tab.main_window.settings.get("nginx_port", 80))
