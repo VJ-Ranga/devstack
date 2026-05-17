@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+
+.DS_Store
+Thumbs.db
+
+devstack-app/config/app-settings.json
+
+devstack-template/apache/logs/
+devstack-template/nginx/logs/
+devstack-template/mysql/data/
+devstack-template/_downloads/
