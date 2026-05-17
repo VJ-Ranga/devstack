@@ -17,11 +17,13 @@ class WordPressInstaller:
     def get_inputs():
         return [
             {"key": "site_name", "label": "Site Folder Name", "type": "text", "default": "dev_wordpress"},
+            {"key": "site_title", "label": "Site Title", "type": "text", "default": "My DevStack Site"},
             {"key": "db_host", "label": "Database Host", "type": "text", "default": "127.0.0.1"},
             {"key": "db_port", "label": "Database Port", "type": "text", "default": "3306"},
             {"key": "db_name", "label": "Database Name", "type": "text", "default": "dev_wordpress"},
             {"key": "admin_user", "label": "Admin Username", "type": "text", "default": "admin"},
             {"key": "admin_pass", "label": "Admin Password", "type": "password", "default": "admin123"},
+            {"key": "admin_email", "label": "Admin Email", "type": "text", "default": "admin@example.com"},
         ]
 
     @classmethod
@@ -100,6 +102,62 @@ class WordPressInstaller:
             content = content.replace("localhost", db_host_config) 
             config_path.write_text(content, encoding="utf-8")
             log_callback(f"Successfully configured DB_HOST to '{db_host_config}' and DB_NAME to '{params['db_name']}'")
+
+        # 5. Programmatically run WordPress database installation (headless setup)
+        progress_callback("Running WordPress database setup...", 95)
+        log_callback("Auto-initializing WordPress database tables and admin account...")
+        
+        auto_install_php = target_dir / "wp-auto-install.php"
+        
+        # Escape quotes for PHP strings safely
+        site_title = params.get("site_title", "My DevStack Site").replace("'", "\\'")
+        admin_user = params.get("admin_user", "admin").replace("'", "\\'")
+        admin_pass = params.get("admin_pass", "admin123").replace("'", "\\'")
+        admin_email = params.get("admin_email", "admin@example.com").replace("'", "\\'")
+        
+        php_code = f"""<?php
+define('WP_INSTALLING', true);
+require_once 'wp-load.php';
+require_once 'wp-admin/includes/upgrade.php';
+
+$site_title = '{site_title}';
+$admin_user = '{admin_user}';
+$admin_pass = '{admin_pass}';
+$admin_email = '{admin_email}';
+
+$result = wp_install($site_title, $admin_user, $admin_email, true, '', $admin_pass);
+echo "WP_INSTALLED_OK\\n";
+"""
+        auto_install_php.write_text(php_code, encoding="utf-8")
+        
+        php_exe = target_dir.parent.parent / "php" / "php.exe"
+        if php_exe.exists():
+            log_callback(f"Executing database bootstrap via: {php_exe.name}")
+            import subprocess
+            
+            # Hide console window on Windows
+            flags = 0
+            if hasattr(subprocess, "CREATE_NO_WINDOW"):
+                flags |= subprocess.CREATE_NO_WINDOW
+                
+            r = subprocess.run(
+                [str(php_exe), "-d", "display_errors=1", "wp-auto-install.php"],
+                cwd=target_dir,
+                capture_output=True,
+                text=True,
+                creationflags=flags
+            )
+            
+            # Clean up the script immediately for security
+            if auto_install_php.exists():
+                os.remove(auto_install_php)
+                
+            if "WP_INSTALLED_OK" in r.stdout:
+                log_callback("WordPress database schema and admin account created successfully!")
+            else:
+                log_callback(f"Warning: Database auto-setup output: {r.stdout} {r.stderr}")
+        else:
+            log_callback(f"Warning: Portable PHP binary not found at {php_exe}. Skipping auto-setup.")
 
         progress_callback("WordPress installed successfully!", 100)
         log_callback(">>> One-Click WordPress Installation Completed Successfully!")
