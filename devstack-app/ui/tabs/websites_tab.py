@@ -47,7 +47,7 @@ class WebsitesTab(QWidget):
         # Global Active PHP selector at the header
         self.php_selector_box = QFrame()
         self.php_selector_box.setObjectName("Panel")
-        self.php_selector_box.setStyleSheet("background-color: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px;")
+        self.php_selector_box.setStyleSheet("QFrame#Panel { background-color: rgba(130, 130, 130, 0.05); border: 1px solid rgba(130, 130, 130, 0.12); border-radius: 8px; }")
         php_sel_layout = QHBoxLayout(self.php_selector_box)
         php_sel_layout.setContentsMargins(12, 8, 12, 8)
         php_sel_layout.setSpacing(8)
@@ -222,15 +222,12 @@ class SiteRow(QFrame):
         self.site = site
         self.tab = tab
         self.setObjectName("Panel")
+        
+        # We only override the hover border-color, all other panel values (background, borders)
+        # will cleanly inherit the application's default light/dark card style sheets natively!
         self.setStyleSheet("""
-            QFrame#Panel {
-                background-color: rgba(255, 255, 255, 0.02);
-                border: 1px solid rgba(255, 255, 255, 0.05);
-                border-radius: 12px;
-            }
             QFrame#Panel:hover {
-                background-color: rgba(255, 255, 255, 0.04);
-                border-color: rgba(229, 91, 60, 0.25);
+                border-color: #E55B3C;
             }
         """)
         self._setup_row()
@@ -256,32 +253,47 @@ class SiteRow(QFrame):
         title_block.setSpacing(2)
         
         site_name = QLabel(self.site.get("site_title", "My Site"))
-        site_name.setStyleSheet("font-weight: bold; font-size: 13px; color: #ffffff;")
+        site_name.setObjectName("RowTitle") # Natively styled bold title
         title_block.addWidget(site_name)
 
         folder_name = QLabel(f"htdocs/{self.site.get('folder')}")
-        folder_name.setStyleSheet("font-size: 10px; color: rgba(255, 255, 255, 0.45);")
+        folder_name.setObjectName("MetaText") # Natively styled subtitle text
         title_block.addWidget(folder_name)
         layout.addLayout(title_block, 2)
 
         # 3. Core Engine & Configured PHP Badges
         cms_ver = self._detect_cms_version()
         app_badge = QLabel(f"{self.site.get('app_name', 'CMS')} ({cms_ver})")
-        app_badge.setStyleSheet("color: #E55B3C; background-color: rgba(229, 91, 60, 0.08); font-size: 10px; font-weight: bold; border-radius: 4px; padding: 4px 8px; border: none;")
+        app_badge.setStyleSheet("""
+            color: #E55B3C; 
+            background-color: rgba(229, 91, 60, 0.08); 
+            font-size: 10px; 
+            font-weight: bold; 
+            border-radius: 4px; 
+            padding: 4px 8px; 
+            border: none;
+        """)
         layout.addWidget(app_badge)
 
         php_ver_lbl = QLabel(self.site.get("php_version", "PHP 8.2"))
-        php_ver_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc; background-color: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; padding: 4px 8px;")
+        php_ver_lbl.setObjectName("MetaText")
+        php_ver_lbl.setStyleSheet("""
+            font-size: 10px; 
+            background-color: rgba(130, 130, 130, 0.08); 
+            border: 1px solid rgba(130, 130, 130, 0.15); 
+            border-radius: 4px; 
+            padding: 4px 8px;
+        """)
         layout.addWidget(php_ver_lbl)
 
         # 4. Inline Console Credentials panel
         creds_layout = QHBoxLayout()
-        creds_layout.setContentsMargins(6, 2, 6, 2)
-        creds_layout.setSpacing(6)
+        creds_layout.setContentsMargins(8, 2, 8, 2)
+        creds_layout.setSpacing(8)
 
         user_val = self.site.get("admin_user", "admin")
         user_lbl = QLabel(f"👤 {user_val}")
-        user_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc;")
+        user_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
         creds_layout.addWidget(user_lbl)
 
         copy_user_btn = QPushButton("📋")
@@ -293,12 +305,12 @@ class SiteRow(QFrame):
         # Divider
         div = QFrame()
         div.setFrameStyle(QFrame.VLine | QFrame.Plain)
-        div.setStyleSheet("color: rgba(255,255,255,0.08); max-width: 1px;")
+        div.setStyleSheet("color: rgba(130,130,130,0.15); max-width: 1px;")
         creds_layout.addWidget(div)
 
         pass_val = self.site.get("admin_pass", "admin123")
         self.password_lbl = QLabel("🔑 ••••••••")
-        self.password_lbl.setStyleSheet("font-size: 10px; color: #b0b0bc;")
+        self.password_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
         creds_layout.addWidget(self.password_lbl)
 
         reveal_btn = QPushButton("👁️")
@@ -314,7 +326,14 @@ class SiteRow(QFrame):
         creds_layout.addWidget(copy_pass_btn)
 
         creds_panel = QFrame()
-        creds_panel.setStyleSheet("background-color: rgba(0, 0, 0, 0.15); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 6px;")
+        creds_panel.setObjectName("CredsBox")
+        creds_panel.setStyleSheet("""
+            QFrame#CredsBox {
+                background-color: rgba(130, 130, 130, 0.08); 
+                border: 1px solid rgba(130, 130, 130, 0.15); 
+                border-radius: 6px;
+            }
+        """)
         creds_panel.setLayout(creds_layout)
         layout.addWidget(creds_panel, 2)
 
@@ -324,30 +343,32 @@ class SiteRow(QFrame):
 
         open_btn = QPushButton("🌐 Open")
         open_btn.setObjectName("PrimaryButton")
-        open_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
-        open_btn.clicked.connect(self._open_site)
+        open_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(open_btn)
 
         admin_btn = QPushButton("🔑 Admin")
         admin_btn.setObjectName("DefaultButton")
-        admin_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
-        admin_btn.clicked.connect(self._open_admin)
+        admin_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(admin_btn)
 
         folder_btn = QPushButton("📁 Files")
         folder_btn.setObjectName("DefaultButton")
-        folder_btn.setStyleSheet("font-size: 10px; padding: 4px 8px;")
-        folder_btn.clicked.connect(self._open_folder)
+        folder_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(folder_btn)
 
         delete_btn = QPushButton("🗑️")
-        delete_btn.setObjectName("DefaultButton")
-        delete_btn.setStyleSheet("font-size: 10px; padding: 4px 6px; color: #E55B3C; max-width: 24px;")
+        delete_btn.setObjectName("DangerButton")
+        delete_btn.setCursor(Qt.PointingHandCursor)
         delete_btn.setToolTip("Delete Website")
         delete_btn.clicked.connect(self._delete_site_handler)
         action_layout.addWidget(delete_btn)
 
         layout.addLayout(action_layout, 2)
+
+        # Wire up open/files actions
+        open_btn.clicked.connect(self._open_site)
+        admin_btn.clicked.connect(self._open_admin)
+        folder_btn.clicked.connect(self._open_folder)
 
     def _toggle_password_visibility(self):
         pass_val = self.site.get("admin_pass", "admin123")
