@@ -91,6 +91,11 @@ def start(stack_root: str, service: str = "all") -> dict:
     SERVICES["mysql"]["port"] = mysql_port
     SERVICES["mysql"]["args"] = ["--defaults-file={root}/mysql/my.ini", f"--port={mysql_port}", "--skip-name-resolve", "--skip-grant-tables"]
 
+    active_php = settings.get("active_php_folder", "php")
+    SERVICES["php"]["exe"] = f"{active_php}/php-cgi.exe"
+    SERVICES["php"]["args"] = ["-b", f"127.0.0.1:{php_port}", "-c", f"{{root}}/{active_php}/php.ini"]
+    SERVICES["php"]["wd"] = f"{{root}}/{active_php}"
+
     if service == "all":
         keys = ["mysql", "php", "apache", "nginx"]
     else:

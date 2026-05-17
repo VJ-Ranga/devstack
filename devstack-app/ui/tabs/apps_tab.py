@@ -283,6 +283,27 @@ class AppsTab(QWidget):
             self.progress_bar.setValue(100)
             self.progress_msg.setText(message)
             self.success_button.show()
+            
+            # Record site metadata persistently
+            try:
+                from core.config import save_site
+                import datetime
+                php_folder = self.php_select.currentData()
+                php_version = self.php_select.currentText()
+                site_data = {
+                    "folder": self.newly_installed_site_folder,
+                    "app_id": self.active_installer.meta["id"],
+                    "app_name": self.active_installer.meta["name"],
+                    "admin_user": self.worker.params.get("admin_user", "admin"),
+                    "admin_pass": self.worker.params.get("admin_pass", "admin123"),
+                    "site_title": self.worker.params.get("site_title", "My DevStack Site"),
+                    "php_folder": php_folder,
+                    "php_version": php_version,
+                    "installed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                save_site(site_data)
+            except Exception as e:
+                print(f"Error saving site: {e}")
         else:
             QMessageBox.critical(self, "Installation Failed", f"An error occurred:\n{message}")
             self.show_wizard(self.active_installer)

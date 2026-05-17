@@ -23,6 +23,7 @@ from ui.tabs.overview_tab import OverviewTab
 from ui.tabs.services_tab import ServicesTab
 from ui.tabs.settings_tab import SettingsTab
 from ui.tabs.apps_tab import AppsTab
+from ui.tabs.websites_tab import WebsitesTab
 from ui.widgets import SidebarButton
 
 
@@ -93,10 +94,11 @@ class MainWindow(QMainWindow):
         self.nav_buttons = []
         nav_data = [
             ("Control", "\uE80F", 0),
-            ("Services", "\uE7F4", 1),
-            ("Logs", "\uE9D2", 2),
-            ("App Store", "\uE719", 3),
-            ("Settings", "\uE713", 4),
+            ("Websites", "\uE774", 1),
+            ("Services", "\uE7F4", 2),
+            ("Logs", "\uE9D2", 3),
+            ("App Store", "\uE719", 4),
+            ("Settings", "\uE713", 5),
         ]
         
         for title, glyph, idx in nav_data:
@@ -141,12 +143,14 @@ class MainWindow(QMainWindow):
         self.pages.setObjectName("MainPages")
         
         self.overview_tab = OverviewTab(self)
+        self.websites_tab = WebsitesTab(self)
         self.services_tab = ServicesTab(self)
         self.logs_tab = LogsTab(self)
         self.apps_tab = AppsTab(self)
         self.settings_tab = SettingsTab(self)
         
         self.pages.addWidget(self.overview_tab)
+        self.pages.addWidget(self.websites_tab)
         self.pages.addWidget(self.services_tab)
         self.pages.addWidget(self.logs_tab)
         self.pages.addWidget(self.apps_tab)
@@ -225,6 +229,8 @@ class MainWindow(QMainWindow):
     def _on_tab_changed(self, index):
         if index in (self.pages.indexOf(self.overview_tab), self.pages.indexOf(self.services_tab)):
             self._refresh_all()
+        elif index == self.pages.indexOf(self.websites_tab):
+            self.websites_tab.refresh_sites()
 
     def get_stack_root(self) -> str:
         return self.stack_root
@@ -260,7 +266,7 @@ class MainWindow(QMainWindow):
     def _apply_ui_density(self, density: str):
         theme = self.settings.get("theme", "light")
         self.setStyleSheet(build_stylesheet(density, theme))
-        for tab in (self.overview_tab, self.services_tab, self.logs_tab, self.settings_tab):
+        for tab in (self.overview_tab, self.websites_tab, self.services_tab, self.logs_tab, self.settings_tab):
             if hasattr(tab, "apply_density"):
                 tab.apply_density(density)
 

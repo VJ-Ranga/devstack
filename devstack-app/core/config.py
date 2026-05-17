@@ -10,6 +10,29 @@ _config_dir = Path(os.environ.get("DEVSTACK_CONFIG_DIR", str(DEFAULT_CONFIG_DIR)
 _config_dir.mkdir(parents=True, exist_ok=True)
 
 APP_SETTINGS_PATH = _config_dir / "app-settings.json"
+APP_SITES_PATH = _config_dir / "sites.json"
+
+
+def load_sites() -> list:
+    if APP_SITES_PATH.exists():
+        try:
+            return json.loads(APP_SITES_PATH.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return []
+
+
+def save_site(site: dict) -> None:
+    sites = load_sites()
+    for i, s in enumerate(sites):
+        if s.get("folder") == site.get("folder"):
+            sites[i] = site
+            break
+    else:
+        sites.append(site)
+    APP_SITES_PATH.write_text(
+        json.dumps(sites, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def _resolve(path: str) -> str:

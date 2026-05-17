@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox
+from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox, QProgressBar
 
 from core.config import DEFAULT_SETTINGS, load_settings, save_settings
 from ui.styles import density_button_height, repolish
@@ -12,6 +12,7 @@ class SettingsTab(QWidget):
         self.main_window = main_window
         self._setup_ui()
         self._load_settings()
+        self._refresh_php_audit()
 
     def _make_panel(self, label_text: str):
         label = QLabel(label_text)
@@ -41,7 +42,7 @@ class SettingsTab(QWidget):
         title.setObjectName("PageTitle")
         layout.addWidget(title)
 
-        subtitle = QLabel("Keep settings plain and practical. Save only what the utility actually needs.")
+        subtitle = QLabel("Configure network ports, monitor system settings, and manage multiple PHP interpreters globally.")
         subtitle.setObjectName("BodyText")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
@@ -100,6 +101,86 @@ class SettingsTab(QWidget):
         app_layout.addLayout(app_form)
         layout.addWidget(app_panel)
 
+        # Brand New PHP Version and Settings panel
+        php_lbl, php_panel, php_layout = self._make_panel("PHP RUNTIME MANAGEMENT")
+        layout.addWidget(php_lbl)
+        
+        # PHP settings audit
+        audit_lbl = QLabel("Active PHP Settings Audit:")
+        audit_lbl.setStyleSheet("font-weight: bold; font-size: 11px; margin-top: 4px;")
+        php_layout.addWidget(audit_lbl)
+        
+        self.audit_layout = QHBoxLayout()
+        self.audit_layout.setSpacing(12)
+        self.mem_lbl = QLabel("Memory Limit: --")
+        self.upload_lbl = QLabel("Max Upload: --")
+        self.post_lbl = QLabel("Max Post: --")
+        self.exec_lbl = QLabel("Exec Timeout: --")
+        
+        for lbl in (self.mem_lbl, self.upload_lbl, self.post_lbl, self.exec_lbl):
+            lbl.setStyleSheet("font-size: 11px; background-color: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 10px;")
+            self.audit_layout.addWidget(lbl)
+        php_layout.addLayout(self.audit_layout)
+        
+        # Discovered runtimes switch
+        switch_form = QFormLayout()
+        switch_form.setSpacing(8)
+        self.active_php_combo = QComboBox()
+        self.switch_php_btn = QPushButton("Apply Active Version")
+        self.switch_php_btn.setObjectName("DefaultButton")
+        self.switch_php_btn.clicked.connect(self._switch_php_version)
+        
+        switch_row = QHBoxLayout()
+        switch_row.setSpacing(8)
+        switch_row.addWidget(self.active_php_combo, 1)
+        switch_row.addWidget(self.switch_php_btn)
+        switch_form.addRow("Active Version", switch_row)
+        php_layout.addLayout(switch_form)
+        
+        # Downloader block
+        dl_lbl = QLabel("Download Stable PHP Version:")
+        dl_lbl.setStyleSheet("font-weight: bold; font-size: 11px; margin-top: 8px;")
+        php_layout.addWidget(dl_lbl)
+        
+        dl_form = QFormLayout()
+        dl_form.setSpacing(8)
+        self.stable_php_combo = QComboBox()
+        from core.php_manager import STABLE_PHP_VERSIONS
+        for ver in STABLE_PHP_VERSIONS:
+            self.stable_php_combo.addItem(ver["version"], ver)
+            
+        self.dl_btn = QPushButton("Download & Install")
+        self.dl_btn.setObjectName("PrimaryButton")
+        self.dl_btn.clicked.connect(self._download_php_version)
+        
+        dl_row = QHBoxLayout()
+        dl_row.setSpacing(8)
+        dl_row.addWidget(self.stable_php_combo, 1)
+        dl_row.addWidget(self.dl_btn)
+        dl_form.addRow("Select Release", dl_row)
+        php_layout.addLayout(dl_form)
+        
+        # Progress block for downloading
+        self.dl_progress_frame = QFrame()
+        self.dl_progress_frame.setObjectName("Panel")
+        self.dl_progress_frame.setStyleSheet("background-color: rgba(229, 91, 60, 0.03); border: 1px dashed #E55B3C; margin-top: 8px;")
+        self.dl_progress_frame.hide()
+        
+        dl_prog_layout = QVBoxLayout(self.dl_progress_frame)
+        dl_prog_layout.setSpacing(6)
+        
+        self.dl_prog_msg = QLabel("Downloading PHP runtime package...")
+        self.dl_prog_msg.setStyleSheet("font-size: 11px; font-weight: bold;")
+        dl_prog_layout.addWidget(self.dl_prog_msg)
+        
+        self.dl_progress_bar = QProgressBar()
+        self.dl_progress_bar.setFixedHeight(12)
+        self.dl_progress_bar.setStyleSheet("QProgressBar { background-color: rgba(0,0,0,0.05); border: none; border-radius: 6px; text-align: center; } QProgressBar::chunk { background-color: #E55B3C; border-radius: 6px; }")
+        dl_prog_layout.addWidget(self.dl_progress_bar)
+        php_layout.addWidget(self.dl_progress_frame)
+        
+        layout.addWidget(php_panel)
+
         button_row = QHBoxLayout()
         button_row.addStretch()
         self.save_btn = QPushButton("Save")
@@ -115,6 +196,119 @@ class SettingsTab(QWidget):
 
         scroll.setWidget(content)
         root_layout.addWidget(scroll)
+
+    def _switch_php_version(self):
+        folder = self.active_php_combo.currentData()
+        version_text = self.active_php_combo.currentText()
+        if not folder:
+            return
+            
+        settings = load_settings()
+        settings["active_php_folder"] = folder
+        save_settings(settings)
+        
+        self.main_window.settings = settings
+        self.main_window.apply_settings(settings)
+        
+        QMessageBox.information(
+            self,
+            "PHP Version Applied",
+            f"Active PHP global interpreter has been switched to **{version_text}**!\n\n"
+            "We will stop and restart all stack services now to apply these configurations.",
+        )
+        
+        self._refresh_php_audit()
+        self.main_window._refresh_all()
+        from core.service_manager import restart
+        restart(self.main_window.get_stack_root())
+
+    def _refresh_php_audit(self):
+        settings = load_settings()
+        stack_root = settings.get("stack_root", "")
+        active_folder = settings.get("active_php_folder", "php")
+        
+        # Load discovered runtimes in combo
+        self.active_php_combo.clear()
+        from core.installer import discover_php_versions
+        php_versions = discover_php_versions(stack_root)
+        for php in php_versions:
+            self.active_php_combo.addItem(php["version"], php["folder"])
+            if php["folder"] == active_folder:
+                idx = self.active_php_combo.count() - 1
+                self.active_php_combo.setCurrentIndex(idx)
+                
+        # Parse php.ini values
+        ini_path = Path(stack_root) / active_folder / "php.ini"
+        audit = {
+            "memory_limit": "Unknown",
+            "upload_max_filesize": "Unknown",
+            "post_max_size": "Unknown",
+            "max_execution_time": "Unknown"
+        }
+        if ini_path.exists():
+            try:
+                content = ini_path.read_text(encoding="utf-8")
+                for line in content.splitlines():
+                    line = line.strip()
+                    if not line or line.startswith(";"):
+                        continue
+                    if "=" in line:
+                        parts = line.split("=", 1)
+                        key = parts[0].strip()
+                        val = parts[1].strip()
+                        if key in audit:
+                            audit[key] = val
+            except Exception:
+                pass
+                
+        self.mem_lbl.setText(f"Memory Limit: {audit['memory_limit']}")
+        self.upload_lbl.setText(f"Max Upload: {audit['upload_max_filesize']}")
+        self.post_lbl.setText(f"Max Post: {audit['post_max_size']}")
+        self.exec_lbl.setText(f"Exec Timeout: {audit['max_execution_time']}s" if audit['max_execution_time'].isdigit() else f"Exec Timeout: {audit['max_execution_time']}")
+
+    def _download_php_version(self):
+        ver_data = self.stable_php_combo.currentData()
+        if not ver_data:
+            return
+            
+        settings = load_settings()
+        stack_root = settings.get("stack_root", "")
+        
+        # Disable buttons during download
+        self.dl_btn.setEnabled(False)
+        self.switch_php_btn.setEnabled(False)
+        self.save_btn.setEnabled(False)
+        self.reset_btn.setEnabled(False)
+        
+        self.dl_progress_frame.show()
+        self.dl_progress_bar.setValue(0)
+        self.dl_prog_msg.setText(f"Initializing download for {ver_data['version']}...")
+        
+        from core.php_manager import PHPDownloadWorker
+        self.dl_worker = PHPDownloadWorker(stack_root, ver_data)
+        self.dl_worker.progress.connect(self._on_dl_progress)
+        self.dl_worker.finished.connect(self._on_dl_done)
+        self.dl_worker.start()
+        
+    def _on_dl_progress(self, msg, pct):
+        self.dl_progress_bar.setValue(pct)
+        self.dl_prog_msg.setText(msg)
+        
+    def _on_dl_done(self, success, message):
+        self.dl_btn.setEnabled(True)
+        self.switch_php_btn.setEnabled(True)
+        self.save_btn.setEnabled(True)
+        self.reset_btn.setEnabled(True)
+        self.dl_progress_frame.hide()
+        
+        if success:
+            QMessageBox.information(self, "PHP Installed", message)
+            self._refresh_php_audit()
+            # Refresh websites tab if visible
+            if hasattr(self.main_window, "websites_tab"):
+                self.main_window.websites_tab.refresh_sites()
+        else:
+            QMessageBox.critical(self, "Installation Failed", message)
 
     def _browse_stack_root(self):
         path = QFileDialog.getExistingDirectory(self, "Select DevStack Root Folder", self.stack_root_input.text())
