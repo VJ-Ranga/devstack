@@ -78,6 +78,19 @@ def _wait_for(name: str, timeout: int) -> bool:
 
 
 def start(stack_root: str, service: str = "all") -> dict:
+    from core.config import load_settings
+    settings = load_settings()
+    apache_port = int(settings.get("apache_port", 8088))
+    nginx_port = int(settings.get("nginx_port", 80))
+    php_port = int(settings.get("php_port", 9000))
+    mysql_port = int(settings.get("mysql_port", 3306))
+
+    SERVICES["apache"]["port"] = apache_port
+    SERVICES["nginx"]["port"] = nginx_port
+    SERVICES["php"]["port"] = php_port
+    SERVICES["mysql"]["port"] = mysql_port
+    SERVICES["mysql"]["args"] = ["--defaults-file={root}/mysql/my.ini", f"--port={mysql_port}", "--skip-name-resolve", "--skip-grant-tables"]
+
     if service == "all":
         keys = ["mysql", "php", "apache", "nginx"]
     else:

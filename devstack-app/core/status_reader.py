@@ -4,6 +4,13 @@ from pathlib import Path
 
 
 def get_status(stack_root: str) -> dict:
+    from core.config import load_settings
+    settings = load_settings()
+    apache_port = int(settings.get("apache_port", 8088))
+    nginx_port = int(settings.get("nginx_port", 80))
+    php_port = int(settings.get("php_port", 9000))
+    mysql_port = int(settings.get("mysql_port", 3306))
+
     ps_path = Path(stack_root) / "tools" / "status.ps1"
     if not ps_path.exists():
         return _fallback_status(stack_root)
@@ -12,6 +19,10 @@ def get_status(stack_root: str) -> dict:
         "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", str(ps_path),
+        "-apachePort", str(apache_port),
+        "-nginxPort", str(nginx_port),
+        "-phpPort", str(php_port),
+        "-mysqlPort", str(mysql_port),
     ]
     try:
         result = subprocess.run(
@@ -32,13 +43,20 @@ def get_status(stack_root: str) -> dict:
 
 
 def _fallback_status(stack_root: str) -> dict:
+    from core.config import load_settings
+    settings = load_settings()
+    apache_port = int(settings.get("apache_port", 8088))
+    nginx_port = int(settings.get("nginx_port", 80))
+    php_port = int(settings.get("php_port", 9000))
+    mysql_port = int(settings.get("mysql_port", 3306))
+
     services = []
     for key in ("apache", "nginx", "php", "mysql"):
         services.append({
             "key": key,
             "name": {"apache": "Apache", "nginx": "Nginx", "php": "PHP FastCGI", "mysql": "MariaDB"}[key],
             "process": key,
-            "port": {"apache": 8088, "nginx": 80, "php": 9000, "mysql": 3306}[key],
+            "port": {"apache": apache_port, "nginx": nginx_port, "php": php_port, "mysql": mysql_port}[key],
             "process_running": False,
             "port_listening": False,
             "state": "stopped",

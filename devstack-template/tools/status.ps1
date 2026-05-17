@@ -1,5 +1,12 @@
 $ErrorActionPreference = "SilentlyContinue"
 
+param(
+    [int]$apachePort = 8088,
+    [int]$nginxPort = 80,
+    [int]$phpPort = 9000,
+    [int]$mysqlPort = 3306
+)
+
 function Test-Port {
     param([int]$Port)
     $conn = Get-NetTCPConnection -State Listen -LocalPort $Port | Select-Object -First 1
@@ -13,10 +20,10 @@ function Test-Process {
 }
 
 $services = @(
-    @{ key = "apache"; name = "Apache"; process = "httpd"; port = 8088 },
-    @{ key = "nginx"; name = "Nginx"; process = "nginx"; port = 80 },
-    @{ key = "php"; name = "PHP FastCGI"; process = "php-cgi"; port = 9000 },
-    @{ key = "mysql"; name = "MariaDB"; process = "mysqld"; port = 3306 }
+    @{ key = "apache"; name = "Apache"; process = "httpd"; port = $apachePort },
+    @{ key = "nginx"; name = "Nginx"; process = "nginx"; port = $nginxPort },
+    @{ key = "php"; name = "PHP FastCGI"; process = "php-cgi"; port = $phpPort },
+    @{ key = "mysql"; name = "MariaDB"; process = "mysqld"; port = $mysqlPort }
 )
 
 $result = @()
