@@ -91,6 +91,9 @@ class WebsitesTab(QWidget):
         self.refresh_sites()
 
     def refresh_sites(self):
+        # 0. Intelligent Auto-Scanner for existing htdocs directories
+        self._scan_and_import()
+
         # Clear previous grid items
         while self.grid_layout.count():
             item = self.grid_layout.takeAt(0)
@@ -141,6 +144,52 @@ class WebsitesTab(QWidget):
             card = SiteCard(site, self)
             self.grid_layout.addWidget(card, i // 2, i % 2)
 
+    def _scan_and_import(self):
+        settings = load_settings()
+        stack_root = settings.get("stack_root", "")
+        if not stack_root:
+            return
+            
+        htdocs_dir = Path(stack_root) / "htdocs"
+        if not htdocs_dir.exists():
+            return
+            
+        from core.config import save_site
+        import datetime
+        
+        existing = {s.get("folder") for s in load_sites()}
+        
+        for p in htdocs_dir.iterdir():
+            if p.is_dir() and p.name not in ["dashboard", "assets", "phpmyadmin"] and p.name not in existing:
+                app_id = "custom_php"
+                app_name = "Custom PHP"
+                
+                if (p / "wp-config.php").exists() or (p / "wp-includes").exists():
+                    app_id = "wordpress"
+                    app_name = "WordPress"
+                elif (p / "core" / "lib" / "Drupal.php").exists() or (p / "core" / "includes" / "bootstrap.inc").exists():
+                    app_id = "drupal"
+                    app_name = "Drupal"
+                elif (p / "artisan").exists():
+                    app_id = "laravel"
+                    app_name = "Laravel"
+                    
+                site_data = {
+                    "folder": p.name,
+                    "app_id": app_id,
+                    "app_name": app_name,
+                    "admin_user": "admin",
+                    "admin_pass": "admin123",
+                    "site_title": p.name.replace("_", " ").title(),
+                    "php_folder": "php",
+                    "php_version": "PHP 8.2 (Default)",
+                    "installed_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                try:
+                    save_site(site_data)
+                except Exception as e:
+                    print(f"Error saving scanned site: {e}")
+
     def _apply_global_php_version(self):
         folder = self.global_php_select.currentData()
         version_text = self.global_php_select.currentText()
@@ -186,7 +235,13 @@ class SiteCard(QFrame):
         title_row = QHBoxLayout()
         title_row.setSpacing(10)
 
-        app_icon = QLabel("🌐" if self.site.get("app_id") != "wordpress" else "📝")
+        icon_map = {
+            "wordpress": "📝",
+            "drupal": "💧",
+            "laravel": "🌶️",
+            "custom_php": "⚡"
+        }
+        app_icon = QLabel(icon_map.get(self.site.get("app_id"), "🌐"))
         app_icon.setStyleSheet("font-size: 24px;")
         title_row.addWidget(app_icon)
 
@@ -331,19 +386,30 @@ class SiteCard(QFrame):
             return "WordPress core"
         elif self.site.get("app_id") == "drupal":
             return "Drupal core"
-        return "Core PHP Engine"
+        elif self.site.get("app_id") == "laravel":
+            return "Laravel Framework"
+        return "Custom PHP"
 
     def _open_site(self):
         nginx_port = int(self.tab.main_window.settings.get("nginx_port", 80))
         base = f"http://localhost:{nginx_port}" if nginx_port != 80 else "http://localhost"
-        url = f"{base}/{self.site.get('folder')}/"
+        suffix = "public/" if self.site.get("app_id") == "laravel" else ""
+        url = f"{base}/{self.site.get('folder')}/{suffix}"
         webbrowser.open(url)
 
     def _open_admin(self):
         nginx_port = int(self.tab.main_window.settings.get("nginx_port", 80))
         base = f"http://localhost:{nginx_port}" if nginx_port != 80 else "http://localhost"
-        suffix = "wp-admin/" if self.site.get("app_id") == "wordpress" else "user/login"
-        url = f"{base}/{self.site.get('folder')}/{suffix}"
+        
+        if self.site.get("app_id") == "wordpress":
+            url = f"{base}/{self.site.get('folder')}/wp-admin/"
+        elif self.site.get("app_id") == "drupal":
+            url = f"{base}/{self.site.get('folder')}/user/login"
+        elif self.site.get("app_id") == "laravel":
+            url = f"{base}/phpmyadmin/"
+        else:
+            url = f"{base}/phpmyadmin/"
+            
         webbrowser.open(url)
 
     def _open_folder(self):

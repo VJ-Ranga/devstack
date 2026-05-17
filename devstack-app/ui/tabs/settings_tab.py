@@ -106,21 +106,43 @@ class SettingsTab(QWidget):
         layout.addWidget(php_lbl)
         
         # PHP settings audit
-        audit_lbl = QLabel("Active PHP Settings Audit:")
+        audit_lbl = QLabel("Edit active php.ini Vital Configurations:")
         audit_lbl.setStyleSheet("font-weight: bold; font-size: 11px; margin-top: 4px;")
         php_layout.addWidget(audit_lbl)
         
-        self.audit_layout = QHBoxLayout()
-        self.audit_layout.setSpacing(12)
-        self.mem_lbl = QLabel("Memory Limit: --")
-        self.upload_lbl = QLabel("Max Upload: --")
-        self.post_lbl = QLabel("Max Post: --")
-        self.exec_lbl = QLabel("Exec Timeout: --")
+        php_ini_form = QFormLayout()
+        php_ini_form.setSpacing(8)
         
-        for lbl in (self.mem_lbl, self.upload_lbl, self.post_lbl, self.exec_lbl):
-            lbl.setStyleSheet("font-size: 11px; background-color: rgba(0,0,0,0.03); border: 1px solid rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 10px;")
-            self.audit_layout.addWidget(lbl)
-        php_layout.addLayout(self.audit_layout)
+        self.php_mem_input = QLineEdit()
+        self.php_mem_input.setPlaceholderText("e.g. 256M")
+        
+        self.php_upload_input = QLineEdit()
+        self.php_upload_input.setPlaceholderText("e.g. 64M")
+        
+        self.php_post_input = QLineEdit()
+        self.php_post_input.setPlaceholderText("e.g. 64M")
+        
+        self.php_exec_input = QSpinBox()
+        self.php_exec_input.setRange(1, 7200)
+        self.php_exec_input.setSuffix(" seconds")
+        
+        php_ini_form.addRow("Memory Limit", self.php_mem_input)
+        php_ini_form.addRow("Max Upload Limit", self.php_upload_input)
+        php_ini_form.addRow("Max Post Size", self.php_post_input)
+        php_ini_form.addRow("Execution Timeout", self.php_exec_input)
+        
+        self.save_php_ini_btn = QPushButton("Save & Apply PHP Limits")
+        self.save_php_ini_btn.setObjectName("PrimaryButton")
+        self.save_php_ini_btn.clicked.connect(self._save_php_ini_config)
+        
+        php_layout.addLayout(php_ini_form)
+        
+        save_btn_row = QHBoxLayout()
+        save_btn_row.addStretch()
+        save_btn_row.addWidget(self.save_php_ini_btn)
+        php_layout.addLayout(save_btn_row)
+        
+        php_layout.addSpacing(6)
         
         # Discovered runtimes switch
         switch_form = QFormLayout()
@@ -240,10 +262,10 @@ class SettingsTab(QWidget):
         # Parse php.ini values
         ini_path = Path(stack_root) / active_folder / "php.ini"
         audit = {
-            "memory_limit": "Unknown",
-            "upload_max_filesize": "Unknown",
-            "post_max_size": "Unknown",
-            "max_execution_time": "Unknown"
+            "memory_limit": "256M",
+            "upload_max_filesize": "64M",
+            "post_max_size": "64M",
+            "max_execution_time": "300"
         }
         if ini_path.exists():
             try:
@@ -261,10 +283,65 @@ class SettingsTab(QWidget):
             except Exception:
                 pass
                 
-        self.mem_lbl.setText(f"Memory Limit: {audit['memory_limit']}")
-        self.upload_lbl.setText(f"Max Upload: {audit['upload_max_filesize']}")
-        self.post_lbl.setText(f"Max Post: {audit['post_max_size']}")
-        self.exec_lbl.setText(f"Exec Timeout: {audit['max_execution_time']}s" if audit['max_execution_time'].isdigit() else f"Exec Timeout: {audit['max_execution_time']}")
+        self.php_mem_input.setText(audit['memory_limit'])
+        self.php_upload_input.setText(audit['upload_max_filesize'])
+        self.php_post_input.setText(audit['post_max_size'])
+        
+        t_val = 300
+        if audit['max_execution_time'].isdigit():
+            t_val = int(audit['max_execution_time'])
+        self.php_exec_input.setValue(t_val)
+
+    def _save_php_ini_config(self):
+        settings = load_settings()
+        stack_root = settings.get("stack_root", "")
+        active_folder = settings.get("active_php_folder", "php")
+        ini_path = Path(stack_root) / active_folder / "php.ini"
+        
+        if not ini_path.exists():
+            QMessageBox.critical(self, "Error", f"Active php.ini not found at {ini_path}")
+            return
+            
+        mem = self.php_mem_input.text().strip()
+        upload = self.php_upload_input.text().strip()
+        post = self.php_post_input.text().strip()
+        timeout = str(self.php_exec_input.value())
+        
+        try:
+            lines = ini_path.read_text(encoding="utf-8").splitlines()
+            new_lines = []
+            
+            for line in lines:
+                stripped = line.strip()
+                if not stripped.startswith(";") and "=" in stripped:
+                    parts = stripped.split("=", 1)
+                    key = parts[0].strip()
+                    if key == "memory_limit":
+                        line = f"memory_limit = {mem}"
+                    elif key == "upload_max_filesize":
+                        line = f"upload_max_filesize = {upload}"
+                    elif key == "post_max_size":
+                        line = f"post_max_size = {post}"
+                    elif key == "max_execution_time":
+                        line = f"max_execution_time = {timeout}"
+                new_lines.append(line)
+                
+            ini_path.write_text("\n".join(new_lines), encoding="utf-8")
+            
+            QMessageBox.information(
+                self,
+                "PHP Configuration Saved",
+                "Your new **php.ini** directives were updated successfully!\n\n"
+                "We will stop and restart all stack services now to apply the new PHP limits.",
+            )
+            
+            self._refresh_php_audit()
+            self.main_window._refresh_all()
+            from core.service_manager import restart
+            restart(stack_root)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error Saving php.ini", f"Failed to save settings: {e}")
 
     def _download_php_version(self):
         ver_data = self.stable_php_combo.currentData()
