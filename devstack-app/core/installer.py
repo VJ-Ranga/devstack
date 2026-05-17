@@ -34,6 +34,11 @@ class InstallWorker(QThread):
 
             # Extract custom host & port if provided
             db_host = self.params.get("db_host", "127.0.0.1").strip()
+            
+            # Guardrail: Map 'localhost' to '127.0.0.1' to prevent reverse DNS lookup blocks or IPv6 ::1 binds
+            if db_host.lower() == "localhost":
+                db_host = "127.0.0.1"
+
             db_port_str = self.params.get("db_port", "").strip()
             db_port = int(db_port_str) if db_port_str.isdigit() else self.db_port
 
