@@ -174,9 +174,20 @@ class AppsTab(QWidget):
         self.active_installer = installer_class
         self.wiz_title.setText(f"Install {installer_class.meta['name']}")
         
-        # Clear existing dynamic inputs
-        for i in reversed(range(self.inputs_layout.count())):
-            self.inputs_layout.itemAt(i).widget().setParent(None)
+        # Clear existing dynamic inputs safely (handles nested layouts and widgets)
+        while self.inputs_layout.count():
+            item = self.inputs_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+            else:
+                sublayout = item.layout()
+                if sublayout:
+                    while sublayout.count():
+                        subitem = sublayout.takeAt(0)
+                        subwidget = subitem.widget()
+                        if subwidget:
+                            subwidget.deleteLater()
             
         self.input_widgets = {}
         

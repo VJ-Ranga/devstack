@@ -58,8 +58,10 @@ class InstallWorker(QThread):
                     self.log_signal.emit(f"Executing SQL Query: {query}")
                     cmd = [
                         str(mysql_exe),
-                        "-h", self.db_host,
-                        "-P", str(self.db_port),
+                        f"--host={self.db_host}",
+                        f"--port={self.db_port}",
+                        "--protocol=tcp",
+                        "--ssl=0",
                         "-u", "root",
                         "-e", query
                     ]

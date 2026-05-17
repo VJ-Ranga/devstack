@@ -11,3 +11,7 @@ devstack-template/apache/logs/
 devstack-template/nginx/logs/
 devstack-template/mysql/data/
 devstack-template/_downloads/
+
+# Ignore custom user-installed websites in htdocs, preserving the control dashboard
+devstack-template/htdocs/*/
+!devstack-template/htdocs/dashboard/
