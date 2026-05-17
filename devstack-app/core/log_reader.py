@@ -28,7 +28,7 @@ def tail_file(path: Path, n: int = 100) -> str:
 
 def _resolve_glob(base: Path, pattern: str) -> list[Path]:
     if "*" in pattern:
-        matches = list(base.parent.parent.glob(pattern))
+        matches = list(base.glob(pattern))
         return matches
     p = base / pattern
     if p.exists():

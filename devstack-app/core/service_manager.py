@@ -34,8 +34,6 @@ def _flags():
     f = 0
     if hasattr(subprocess, "CREATE_NO_WINDOW"):
         f |= subprocess.CREATE_NO_WINDOW
-    if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB"):
-        f |= subprocess.CREATE_BREAKAWAY_FROM_JOB
     return f
 
 
@@ -104,11 +102,26 @@ def start(stack_root: str, service: str = "all") -> dict:
         args = [_resolve(stack_root, a) for a in svc["args"]]
         wd = _resolve(stack_root, svc["wd"])
         try:
-            p = subprocess.Popen(
-                [str(exe)] + args,
-                cwd=wd,
-                creationflags=_flags(),
-            )
+            # Try to start the service with job breakaway so it persists if the manager closes
+            flags = 0
+            if hasattr(subprocess, "CREATE_NO_WINDOW"):
+                flags |= subprocess.CREATE_NO_WINDOW
+            if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB"):
+                flags |= subprocess.CREATE_BREAKAWAY_FROM_JOB
+            try:
+                p = subprocess.Popen(
+                    [str(exe)] + args,
+                    cwd=wd,
+                    creationflags=flags,
+                )
+            except PermissionError:
+                # Fallback to starting without breakaway if restricted by the parent job
+                flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+                p = subprocess.Popen(
+                    [str(exe)] + args,
+                    cwd=wd,
+                    creationflags=flags,
+                )
             started.append((k, svc, p))
         except Exception as e:
             errors.append(f"{svc['name']}: {e}")

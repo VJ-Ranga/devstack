@@ -125,24 +125,31 @@ class OverviewTab(QWidget):
         services_label.setObjectName("SectionLabel")
         layout.addWidget(services_label)
 
-        service_list = QVBoxLayout()
-        service_list.setSpacing(8)
-        for name, key, port, description in (
+        service_grid = QGridLayout()
+        service_grid.setHorizontalSpacing(8)
+        service_grid.setVerticalSpacing(8)
+
+        services_data = (
             ("Apache", "apache", 8088, "Backend web server"),
             ("Nginx", "nginx", 80, "Main web entry point"),
             ("PHP FastCGI", "php", 9000, "PHP runtime"),
             ("MariaDB", "mysql", 3306, "Database server"),
-        ):
-            row = QFrame()
-            row.setObjectName("ServiceRow")
-            set_status_frame(row, "stopped")
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(16, 14, 16, 14)
-            row_layout.setSpacing(12)
+        )
+
+        for i, (name, key, port, description) in enumerate(services_data):
+            card = QFrame()
+            card.setObjectName("ServiceRow")
+            set_status_frame(card, "stopped")
+
+            card_layout = QHBoxLayout(card)
+            card_layout.setContentsMargins(12, 10, 12, 10)
+            card_layout.setSpacing(10)
 
             icon_box = QFrame()
             icon_box.setObjectName("StatusIconBox")
             set_status_frame(icon_box, "stopped")
+            icon_box.setFixedSize(28, 28)
+
             icon_layout = QVBoxLayout(icon_box)
             icon_layout.setContentsMargins(0, 0, 0, 0)
             icon_layout.setAlignment(Qt.AlignCenter)
@@ -150,28 +157,27 @@ class OverviewTab(QWidget):
             icon.setObjectName("StatusIconGlyph")
             set_status_badge(icon, "stopped")
             icon_layout.addWidget(icon)
-            row_layout.addWidget(icon_box)
+            card_layout.addWidget(icon_box)
 
-            text_col = QVBoxLayout()
-            text_col.setSpacing(2)
+            text_block = QVBoxLayout()
+            text_block.setSpacing(2)
             title_label = QLabel(name)
             title_label.setObjectName("RowTitle")
-            desc_label = QLabel(description)
-            desc_label.setObjectName("BodyText")
-            meta = QLabel(f"Port {port}")
-            meta.setObjectName("MetaText")
-            text_col.addWidget(title_label)
-            text_col.addWidget(desc_label)
-            text_col.addWidget(meta)
-            row_layout.addLayout(text_col, 1)
+            meta_label = QLabel(f"Port {port}")
+            meta_label.setObjectName("MetaText")
+            text_block.addWidget(title_label)
+            text_block.addWidget(meta_label)
+            card_layout.addLayout(text_block, 1)
 
             badge = QLabel("Stopped")
             badge.setObjectName("StatusBadge")
             set_status_badge(badge, "stopped")
-            row_layout.addWidget(badge, 0, Qt.AlignVCenter)
-            service_list.addWidget(row)
-            self.service_rows[key] = {"row": row, "icon_box": icon_box, "icon": icon, "badge": badge}
-        layout.addLayout(service_list)
+            card_layout.addWidget(badge, 0, Qt.AlignVCenter)
+
+            service_grid.addWidget(card, i // 2, i % 2)
+            self.service_rows[key] = {"row": card, "icon_box": icon_box, "icon": icon, "badge": badge}
+
+        layout.addLayout(service_grid)
 
         versions_label = QLabel("VERSIONS")
         versions_label.setObjectName("SectionLabel")
@@ -240,6 +246,17 @@ class OverviewTab(QWidget):
         else:
             self.health_label.setText("All services stopped")
             self.health_detail.setText("Start the stack to use Apache, Nginx, PHP, and MariaDB.")
+
+        # Dynamically enable/disable control buttons based on overall status
+        if overall == "running":
+            self.start_btn.setEnabled(False)
+            self.stop_btn.setEnabled(True)
+        elif overall == "stopped":
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(False)
+        else: # partial state - allow starting missing ones or stopping all
+            self.start_btn.setEnabled(True)
+            self.stop_btn.setEnabled(True)
 
         glyph_map = {"running": FLUENT_GLYPHS["running"], "partial": FLUENT_GLYPHS["partial"], "stopped": FLUENT_GLYPHS["stopped"]}
         for svc in status.get("services", []):

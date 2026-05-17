@@ -142,6 +142,7 @@ class SettingsTab(QWidget):
             "mysql_port": self.mysql_port_input.value(),
             "auto_refresh_interval": self.refresh_interval_input.value(),
             "ui_density": self.ui_density_input.currentData(),
+            "theme": self.main_window.settings.get("theme", "light"),
         }
         save_settings(settings)
         self.main_window.set_stack_root(settings["stack_root"])

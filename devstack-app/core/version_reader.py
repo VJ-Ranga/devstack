@@ -15,8 +15,7 @@ def _run_version_cmd(exe_path: str, args: list) -> str:
             text=True,
             timeout=10,
             creationflags=(
-                (subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0)
-                | (subprocess.CREATE_BREAKAWAY_FROM_JOB if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB") else 0)
+                subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
             ),
         )
         output = (result.stdout or result.stderr or "").strip()

@@ -60,3 +60,34 @@ class QuickAccessCard(ClickableFrame):
         text_layout.addWidget(title_label)
         text_layout.addWidget(subtitle_label)
         layout.addLayout(text_layout, 1)
+
+
+class SidebarButton(ClickableFrame):
+    def __init__(self, title: str, glyph: str, index: int, parent=None):
+        super().__init__(parent)
+        self.setObjectName("SidebarBtn")
+        self.index = index
+        self.setProperty("active", "false")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(10)
+
+        self.icon_label = QLabel(glyph)
+        self.icon_label.setObjectName("SidebarBtnIcon")
+        self.icon_label.setProperty("active", "false")
+        layout.addWidget(self.icon_label)
+
+        self.text_label = QLabel(title)
+        self.text_label.setObjectName("SidebarBtnText")
+        self.text_label.setProperty("active", "false")
+        layout.addWidget(self.text_label, 1)
+
+    def set_active(self, active: bool):
+        val = "true" if active else "false"
+        self.setProperty("active", val)
+        self.icon_label.setProperty("active", val)
+        self.text_label.setProperty("active", val)
+        repolish(self)
+        repolish(self.icon_label)
+        repolish(self.text_label)

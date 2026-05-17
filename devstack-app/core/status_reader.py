@@ -20,8 +20,7 @@ def get_status(stack_root: str) -> dict:
             text=True,
             timeout=15,
             creationflags=(
-                (subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0)
-                | (subprocess.CREATE_BREAKAWAY_FROM_JOB if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB") else 0)
+                subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
             ),
         )
         if result.returncode == 0 and result.stdout.strip():

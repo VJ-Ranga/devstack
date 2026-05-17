@@ -42,6 +42,7 @@ DEFAULT_SETTINGS = {
     "php_timezone": "UTC",
     "start_with_windows": False,
     "ui_density": "comfortable",
+    "theme": "light",
 }
 
 

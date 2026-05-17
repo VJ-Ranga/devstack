@@ -1,6 +1,14 @@
 import sys
 import os
 
+# Enable proper Windows taskbar icon rendering
+if sys.platform == "win32":
+    import ctypes
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("vjranga.devstack.manager.v1")
+    except Exception:
+        pass
+
 from PySide6.QtWidgets import QApplication, QStyleFactory
 from PySide6.QtGui import QIcon, QPalette, QColor
 
