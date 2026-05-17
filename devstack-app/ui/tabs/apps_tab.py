@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QScrollArea,
     QMessageBox,
+    QPlainTextEdit,
 )
 import webbrowser
 
@@ -145,6 +146,13 @@ class AppsTab(QWidget):
         self.progress_msg.setAlignment(Qt.AlignCenter)
         self.progress_layout.addWidget(self.progress_msg)
         
+        # Live log terminal
+        self.log_console = QPlainTextEdit()
+        self.log_console.setReadOnly(True)
+        self.log_console.setMinimumHeight(240)
+        self.log_console.setStyleSheet("QPlainTextEdit { background-color: #1E1B18; color: #BF8E3B; border: 1px solid #E5E2DC; border-radius: 6px; font-family: Consolas, monospace; font-size: 11px; padding: 10px; }")
+        self.progress_layout.addWidget(self.log_console)
+        
         self.success_button = QPushButton("🚀 Open Site in Browser")
         self.success_button.setObjectName("PrimaryButton")
         self.success_button.setFixedWidth(240)
@@ -216,6 +224,7 @@ class AppsTab(QWidget):
         
         self.progress_bar.setValue(0)
         self.progress_msg.setText("Starting offline installation process...")
+        self.log_console.clear()
         self.success_button.hide()
 
     def _run_installer(self):
@@ -245,8 +254,14 @@ class AppsTab(QWidget):
             db_port
         )
         self.worker.progress.connect(self._on_install_progress)
+        self.worker.log_emitted.connect(self._on_log_emitted)
         self.worker.finished.connect(self._on_install_done)
         self.worker.start()
+
+    def _on_log_emitted(self, msg):
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        self.log_console.appendPlainText(f"[{timestamp}] {msg}")
 
     def _on_install_progress(self, message, percentage):
         self.progress_bar.setValue(percentage)

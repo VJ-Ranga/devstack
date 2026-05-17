@@ -6,6 +6,7 @@ from core.version_reader import get_php_version
 
 class InstallWorker(QThread):
     progress = Signal(str, int)  # (Status Message, Percentage)
+    log_emitted = Signal(str)    # (Detailed Log Line)
     finished = Signal(bool, str) # (Success, Message)
 
     def __init__(self, plugin, stack_root: str, params: dict, php_folder: str, db_port: int = 3306):
@@ -28,12 +29,23 @@ class InstallWorker(QThread):
                 return
 
             self.progress.emit("Initializing environment...", 5)
+            self.log_emitted.emit(">>> Starting One-Click Installation Process")
+            self.log_emitted.emit(f"Site Target Directory: htdocs/{site_folder_name}")
+
+            # Extract custom host & port if provided
+            db_host = self.params.get("db_host", "127.0.0.1").strip()
+            db_port_str = self.params.get("db_port", "").strip()
+            db_port = int(db_port_str) if db_port_str.isdigit() else self.db_port
+
+            self.log_emitted.emit(f"Database Config: Host={db_host}, Port={db_port}")
 
             # 2. Setup mock database connection object that executes via local mysql.exe CLI
             class SubprocessSQLConnection:
-                def __init__(self, stack_root, db_port):
+                def __init__(self, stack_root, db_host, db_port, log_signal):
                     self.stack_root = stack_root
+                    self.db_host = db_host
                     self.db_port = db_port
+                    self.log_signal = log_signal
 
                 def cursor(self):
                     return self
@@ -43,9 +55,10 @@ class InstallWorker(QThread):
                     if not mysql_exe.exists():
                         raise FileNotFoundError("mysql.exe not found in stack.")
                     
+                    self.log_signal.emit(f"Executing SQL Query: {query}")
                     cmd = [
                         str(mysql_exe),
-                        "-h", "127.0.0.1",
+                        "-h", self.db_host,
                         "-P", str(self.db_port),
                         "-u", "root",
                         "-e", query
@@ -60,20 +73,25 @@ class InstallWorker(QThread):
                     )
                     if res.returncode != 0:
                         raise Exception(f"MariaDB Error: {res.stderr or res.stdout}")
+                    self.log_signal.emit("SQL Query executed successfully.")
 
                 def close(self):
                     pass
 
-            mysql_conn = SubprocessSQLConnection(self.stack_root, self.db_port)
+            mysql_conn = SubprocessSQLConnection(self.stack_root, db_host, db_port, self.log_emitted)
 
-            # 3. Call the plugin's install routine
-            self.plugin.install(target_dir, self.params, mysql_conn, self.emit_progress)
+            # 3. Call the plugin's install routine with our dynamic logging hook
+            def log_callback(msg):
+                self.log_emitted.emit(msg)
+
+            self.plugin.install(target_dir, self.params, mysql_conn, self.emit_progress, log_callback)
 
             # 4. If a custom PHP folder is selected, write directory FPM mapping inside a local .htaccess file!
             self.setup_php_routing(target_dir)
 
             self.finished.emit(True, f"Successfully installed {self.plugin.meta['name']} into htdocs/{site_folder_name}!")
         except Exception as e:
+            self.log_emitted.emit(f"FATAL ERROR: {str(e)}")
             self.finished.emit(False, str(e))
 
     def emit_progress(self, message, percent):
