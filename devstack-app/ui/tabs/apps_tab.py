@@ -153,11 +153,24 @@ class AppsTab(QWidget):
         self.log_console.setStyleSheet("QPlainTextEdit { background-color: #1E1B18; color: #BF8E3B; border: 1px solid #E5E2DC; border-radius: 6px; font-family: Consolas, monospace; font-size: 11px; padding: 10px; }")
         self.progress_layout.addWidget(self.log_console)
         
+        # Dynamic completion action buttons
+        self.completion_layout = QHBoxLayout()
+        self.completion_layout.setSpacing(12)
+        self.completion_layout.setAlignment(Qt.AlignCenter)
+        
         self.success_button = QPushButton("🚀 Open Site in Browser")
         self.success_button.setObjectName("PrimaryButton")
-        self.success_button.setFixedWidth(240)
+        self.success_button.setFixedWidth(200)
         self.success_button.clicked.connect(self._open_newly_installed_site)
-        self.progress_layout.addWidget(self.success_button)
+        self.completion_layout.addWidget(self.success_button)
+        
+        self.done_button = QPushButton("Return to App Store")
+        self.done_button.setObjectName("DefaultButton")
+        self.done_button.setFixedWidth(160)
+        self.done_button.clicked.connect(self.show_grid)
+        self.completion_layout.addWidget(self.done_button)
+        
+        self.progress_layout.addLayout(self.completion_layout)
         
         self.main_layout.addWidget(self.progress_frame)
 
@@ -237,6 +250,7 @@ class AppsTab(QWidget):
         self.progress_msg.setText("Starting offline installation process...")
         self.log_console.clear()
         self.success_button.hide()
+        self.done_button.hide()
 
     def _run_installer(self):
         params = {}
@@ -283,6 +297,7 @@ class AppsTab(QWidget):
             self.progress_bar.setValue(100)
             self.progress_msg.setText(message)
             self.success_button.show()
+            self.done_button.show()
             
             # Record site metadata persistently
             try:

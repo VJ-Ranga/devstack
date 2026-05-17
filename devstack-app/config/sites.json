@@ -1,13 +1,13 @@
 [
   {
-    "folder": "dev_wordpress",
-    "app_id": "wordpress",
-    "app_name": "WordPress",
+    "folder": "my_php_app",
+    "app_id": "custom_php",
+    "app_name": "Custom PHP App",
     "admin_user": "admin",
     "admin_pass": "admin123",
-    "site_title": "Dev Wordpress",
+    "site_title": "My Custom PHP App",
     "php_folder": "php",
-    "php_version": "PHP 8.2 (Default)",
-    "installed_at": "2026-05-18 00:46:33"
+    "php_version": "PHP 8.4.21",
+    "installed_at": "2026-05-18 01:05:43"
   }
 ]
