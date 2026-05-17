@@ -20,7 +20,7 @@ class InstallWorker(QThread):
         try:
             # 1. Prepare target directory in htdocs
             site_folder_name = self.params.get("site_name", "dev_site").strip()
-            target_dir = self.stack_root / "devstack-template" / "htdocs" / site_folder_name
+            target_dir = self.stack_root / "htdocs" / site_folder_name
             
             # Ensure folder name is valid and doesn't overwrite core assets
             if not site_folder_name or site_folder_name in ["dashboard", "assets"]:
