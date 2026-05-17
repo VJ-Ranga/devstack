@@ -297,7 +297,8 @@ class SiteRow(QFrame):
         creds_layout.addWidget(user_lbl)
 
         copy_user_btn = QPushButton("📋")
-        copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
+        copy_user_btn.setCursor(Qt.PointingHandCursor)
         copy_user_btn.setToolTip("Copy Username")
         copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(user_val, "Username"))
         creds_layout.addWidget(copy_user_btn)
@@ -314,13 +315,15 @@ class SiteRow(QFrame):
         creds_layout.addWidget(self.password_lbl)
 
         reveal_btn = QPushButton("👁️")
-        reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
+        reveal_btn.setCursor(Qt.PointingHandCursor)
         reveal_btn.setToolTip("Reveal/Hide Password")
         reveal_btn.clicked.connect(self._toggle_password_visibility)
         creds_layout.addWidget(reveal_btn)
 
         copy_pass_btn = QPushButton("📋")
-        copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; cursor: pointer; max-width: 16px; padding: 0;")
+        copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
+        copy_pass_btn.setCursor(Qt.PointingHandCursor)
         copy_pass_btn.setToolTip("Copy Password")
         copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(pass_val, "Password"))
         creds_layout.addWidget(copy_pass_btn)
