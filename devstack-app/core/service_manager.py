@@ -24,7 +24,7 @@ SERVICES = {
     "mysql": {
         "name": "MariaDB", "process": "mysqld.exe", "port": 3306,
         "exe": "mysql/bin/mysqld.exe",
-        "args": ["--defaults-file={root}/mysql/my.ini"],
+        "args": ["--defaults-file={root}/mysql/my.ini", "--skip-name-resolve"],
         "wd": "{root}/mysql/bin",
     },
 }
