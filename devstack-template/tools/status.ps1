@@ -1,11 +1,11 @@
-$ErrorActionPreference = "SilentlyContinue"
-
 param(
     [int]$apachePort = 8088,
     [int]$nginxPort = 80,
     [int]$phpPort = 9000,
     [int]$mysqlPort = 3306
 )
+
+$ErrorActionPreference = "SilentlyContinue"
 
 function Test-Port {
     param([int]$Port)
