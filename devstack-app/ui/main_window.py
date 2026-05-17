@@ -22,6 +22,7 @@ from ui.tabs.logs_tab import LogsTab
 from ui.tabs.overview_tab import OverviewTab
 from ui.tabs.services_tab import ServicesTab
 from ui.tabs.settings_tab import SettingsTab
+from ui.tabs.apps_tab import AppsTab
 from ui.widgets import SidebarButton
 
 
@@ -94,7 +95,8 @@ class MainWindow(QMainWindow):
             ("Control", "\uE80F", 0),
             ("Services", "\uE7F4", 1),
             ("Logs", "\uE9D2", 2),
-            ("Settings", "\uE713", 3),
+            ("App Store", "\uE719", 3),
+            ("Settings", "\uE713", 4),
         ]
         
         for title, glyph, idx in nav_data:
@@ -141,11 +143,13 @@ class MainWindow(QMainWindow):
         self.overview_tab = OverviewTab(self)
         self.services_tab = ServicesTab(self)
         self.logs_tab = LogsTab(self)
+        self.apps_tab = AppsTab(self)
         self.settings_tab = SettingsTab(self)
         
         self.pages.addWidget(self.overview_tab)
         self.pages.addWidget(self.services_tab)
         self.pages.addWidget(self.logs_tab)
+        self.pages.addWidget(self.apps_tab)
         self.pages.addWidget(self.settings_tab)
         
         main_layout.addWidget(self.pages)
