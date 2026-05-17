@@ -355,6 +355,13 @@ class SiteCard(QFrame):
         folder_btn.clicked.connect(self._open_folder)
         btn_row.addWidget(folder_btn, 1)
 
+        delete_btn = QPushButton("🗑️")
+        delete_btn.setObjectName("DefaultButton")
+        delete_btn.setStyleSheet("font-size: 11px; padding: 4px 6px; color: #E55B3C; max-width: 32px;")
+        delete_btn.setToolTip("Delete this website")
+        delete_btn.clicked.connect(self._delete_site_handler)
+        btn_row.addWidget(delete_btn)
+
         layout.addLayout(btn_row)
 
     def _toggle_password_visibility(self):
@@ -419,3 +426,57 @@ class SiteCard(QFrame):
             os.startfile(str(site_path))
         else:
             QMessageBox.warning(self, "Directory Not Found", f"The directory {site_path} does not exist.")
+
+    def _delete_site_handler(self):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Delete Website")
+        msg_box.setText(f"Are you sure you want to delete **{self.site.get('site_title', 'this site')}**?")
+        msg_box.setInformativeText("Would you like to keep the website files on disk, or permanently destroy all files and database?")
+        
+        btn_keep_files = msg_box.addButton("Remove from Dashboard Only", QMessageBox.ActionRole)
+        btn_destroy_all = msg_box.addButton("Permanently Delete Files & DB", QMessageBox.DestructiveRole)
+        btn_cancel = msg_box.addButton("Cancel", QMessageBox.RejectRole)
+        
+        msg_box.setDefaultButton(btn_cancel)
+        msg_box.exec()
+        
+        clicked_btn = msg_box.clickedButton()
+        if clicked_btn == btn_cancel:
+            return
+            
+        stack_root = Path(self.tab.main_window.get_stack_root())
+        folder = self.site.get("folder")
+        db_name = self.site.get("db_name", folder)
+        
+        if clicked_btn == btn_destroy_all:
+            # 1. Drop MariaDB Database
+            try:
+                from core.installer import get_mysql_connection
+                settings = self.tab.main_window.settings
+                conn = get_mysql_connection(
+                    str(stack_root),
+                    settings.get("mysql_port", 3306)
+                )
+                if conn:
+                    cursor = conn.cursor()
+                    cursor.execute(f"DROP DATABASE IF EXISTS `{db_name}`;")
+                    cursor.close()
+                    conn.close()
+            except Exception as e:
+                print(f"Error dropping database: {e}")
+                
+            # 2. Delete physical htdocs folder
+            site_path = stack_root / "htdocs" / folder
+            if site_path.exists() and site_path.is_dir():
+                try:
+                    import shutil
+                    shutil.rmtree(str(site_path), ignore_errors=True)
+                except Exception as e:
+                    print(f"Error removing folder: {e}")
+                    
+        # 3. Delete registry entry
+        from core.config import delete_site
+        delete_site(folder)
+        
+        self.tab.main_window.statusBar().showMessage(f"Website '{self.site.get('site_title')}' has been successfully deleted.", 3000)
+        self.tab.refresh_sites()

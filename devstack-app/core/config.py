@@ -35,6 +35,14 @@ def save_site(site: dict) -> None:
     )
 
 
+def delete_site(folder: str) -> None:
+    sites = load_sites()
+    sites = [s for s in sites if s.get("folder") != folder]
+    APP_SITES_PATH.write_text(
+        json.dumps(sites, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+
 def _resolve(path: str) -> str:
     p = Path(path)
     if not p.is_absolute():
