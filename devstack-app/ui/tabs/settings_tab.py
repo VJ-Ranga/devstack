@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox, QProgressBar
+from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox, QProgressBar, QPlainTextEdit
 
 from core.config import DEFAULT_SETTINGS, load_settings, save_settings
 from ui.styles import density_button_height, repolish
@@ -180,11 +180,11 @@ class SettingsTab(QWidget):
         # Progress block for downloading
         self.dl_progress_frame = QFrame()
         self.dl_progress_frame.setObjectName("Panel")
-        self.dl_progress_frame.setStyleSheet("background-color: rgba(229, 91, 60, 0.03); border: 1px dashed #E55B3C; margin-top: 8px;")
+        self.dl_progress_frame.setStyleSheet("background-color: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; margin-top: 12px; padding: 12px;")
         self.dl_progress_frame.hide()
         
         dl_prog_layout = QVBoxLayout(self.dl_progress_frame)
-        dl_prog_layout.setSpacing(6)
+        dl_prog_layout.setSpacing(8)
         
         self.dl_prog_msg = QLabel("Downloading PHP runtime package...")
         self.dl_prog_msg.setStyleSheet("font-size: 11px; font-weight: bold;")
@@ -194,6 +194,30 @@ class SettingsTab(QWidget):
         self.dl_progress_bar.setFixedHeight(12)
         self.dl_progress_bar.setStyleSheet("QProgressBar { background-color: rgba(0,0,0,0.05); border: none; border-radius: 6px; text-align: center; } QProgressBar::chunk { background-color: #E55B3C; border-radius: 6px; }")
         dl_prog_layout.addWidget(self.dl_progress_bar)
+
+        self.dl_log_console = QPlainTextEdit()
+        self.dl_log_console.setReadOnly(True)
+        self.dl_log_console.setFixedHeight(120)
+        self.dl_log_console.setStyleSheet("""
+            QPlainTextEdit {
+                background-color: #0b0b0f;
+                color: #a9b7c6;
+                font-family: 'Consolas', 'Courier New', monospace;
+                font-size: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 6px;
+                padding: 6px;
+            }
+        """)
+        dl_prog_layout.addWidget(self.dl_log_console)
+
+        self.dl_dismiss_btn = QPushButton("Dismiss Console")
+        self.dl_dismiss_btn.setObjectName("DefaultButton")
+        self.dl_dismiss_btn.setFixedHeight(26)
+        self.dl_dismiss_btn.clicked.connect(self.dl_progress_frame.hide)
+        self.dl_dismiss_btn.hide()
+        dl_prog_layout.addWidget(self.dl_dismiss_btn)
+
         php_layout.addWidget(self.dl_progress_frame)
         
         layout.addWidget(php_panel)
@@ -355,13 +379,21 @@ class SettingsTab(QWidget):
         self.dl_progress_frame.show()
         self.dl_progress_bar.setValue(0)
         self.dl_prog_msg.setText(f"Initializing download for {ver_data['version']}...")
+        self.dl_log_console.clear()
+        self.dl_dismiss_btn.hide()
         
         from core.php_manager import PHPDownloadWorker
         self.dl_worker = PHPDownloadWorker(stack_root, ver_data)
         self.dl_worker.progress.connect(self._on_dl_progress)
+        self.dl_worker.log_emitted.connect(self._on_dl_log)
         self.dl_worker.finished.connect(self._on_dl_done)
         self.dl_worker.start()
         
+    def _on_dl_log(self, msg):
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        self.dl_log_console.appendPlainText(f"[{timestamp}] {msg}")
+
     def _on_dl_progress(self, msg, pct):
         self.dl_progress_bar.setValue(pct)
         self.dl_prog_msg.setText(msg)
@@ -371,15 +403,17 @@ class SettingsTab(QWidget):
         self.switch_php_btn.setEnabled(True)
         self.save_btn.setEnabled(True)
         self.reset_btn.setEnabled(True)
-        self.dl_progress_frame.hide()
+        
+        self.dl_dismiss_btn.show()
         
         if success:
+            self.dl_prog_msg.setText("PHP Installed successfully! Check logs below.")
             QMessageBox.information(self, "PHP Installed", message)
             self._refresh_php_audit()
-            # Refresh websites tab if visible
             if hasattr(self.main_window, "websites_tab"):
                 self.main_window.websites_tab.refresh_sites()
         else:
+            self.dl_prog_msg.setText("Installation failed! Check error details below.")
             QMessageBox.critical(self, "Installation Failed", message)
 
     def _browse_stack_root(self):
