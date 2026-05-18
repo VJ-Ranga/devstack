@@ -1,9 +1,22 @@
 from pathlib import Path
-
+from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox, QProgressBar, QPlainTextEdit
 
 from core.config import DEFAULT_SETTINGS, load_settings, save_settings
 from ui.styles import density_button_height, repolish
+
+
+class PHPVersionSwitchWorker(QThread):
+    finished = Signal(dict)
+
+    def __init__(self, stack_root):
+        super().__init__()
+        self.stack_root = stack_root
+
+    def run(self):
+        from core.service_manager import restart
+        res = restart(self.stack_root)
+        self.finished.emit(res)
 
 
 class SettingsTab(QWidget):
@@ -251,17 +264,32 @@ class SettingsTab(QWidget):
         self.main_window.settings = settings
         self.main_window.apply_settings(settings)
         
-        QMessageBox.information(
-            self,
-            "PHP Version Applied",
-            f"Active PHP global interpreter has been switched to **{version_text}**!\n\n"
-            "We will stop and restart all stack services now to apply these configurations.",
-        )
+        self.switch_php_btn.setEnabled(False)
+        self.switch_php_btn.setText("Restarting Stack...")
         
         self._refresh_php_audit()
+        
+        self._switch_worker = PHPVersionSwitchWorker(self.main_window.get_stack_root())
+        self._switch_worker.finished.connect(self._on_switch_done)
+        self._switch_worker.start()
+
+    def _on_switch_done(self, result):
+        self.switch_php_btn.setEnabled(True)
+        self.switch_php_btn.setText("Apply Active Version")
         self.main_window._refresh_all()
-        from core.service_manager import restart
-        restart(self.main_window.get_stack_root())
+        
+        if result.get("success", False):
+            QMessageBox.information(
+                self,
+                "PHP Switch Success",
+                "Stack services restarted and configured successfully under the new PHP runtime!",
+            )
+        else:
+            QMessageBox.warning(
+                self,
+                "Partial Switch Success",
+                f"PHP version switched, but some services failed to start:\n\n{result.get('error', 'Unknown service conflict')}",
+            )
 
     def _refresh_php_audit(self):
         settings = load_settings()

@@ -43,15 +43,13 @@ def _resolve(root: str, template: str) -> str:
 
 
 def _is_running(exe_name: str) -> bool:
-    name = exe_name.replace(".exe", "")
     try:
         r = subprocess.run(
-            ["powershell", "-NoProfile", "-Command",
-             f"if (Get-Process -Name '{name}' -ErrorAction SilentlyContinue) {{ '1' }}"],
-            capture_output=True, text=True, timeout=5,
+            ["tasklist", "/nh", "/fi", f"imagename eq {exe_name}"],
+            capture_output=True, text=True, timeout=3,
             creationflags=_flags(),
         )
-        return r.stdout.strip() == "1"
+        return exe_name.lower() in r.stdout.lower()
     except Exception:
         return False
 
@@ -60,7 +58,7 @@ def _kill(exe_name: str) -> None:
     for _ in range(3):
         try:
             subprocess.run(
-                ["taskkill", "/f", "/im", exe_name],
+                ["taskkill", "/f", "/t", "/im", exe_name],
                 capture_output=True, timeout=5, creationflags=_flags(),
             )
         except Exception:
@@ -106,11 +104,17 @@ def _sync_apache_config(stack_root: str, apache_port: int, active_php: str) -> N
         content = re.sub(r'<Directory\s+"[^"]+htdocs">', f'<Directory "{escaped_root}/htdocs">', content)
         
         dll_name = "php8apache2_4.dll"
+        module_name = "php_module"
         if "php7" in active_php:
             dll_name = "php7apache2_4.dll"
+            module_name = "php7_module"
+        elif "php8" in active_php or active_php == "php":
+            dll_name = "php8apache2_4.dll"
+            module_name = "php_module"
+            
         dll_path = f"{escaped_root}/{active_php}/{dll_name}"
         
-        content = re.sub(r'LoadModule\s+php\d?_module\s+"[^"]+"', f'LoadModule php_module "{dll_path}"', content)
+        content = re.sub(r'LoadModule\s+php\d?_module\s+"[^"]+"', f'LoadModule {module_name} "{dll_path}"', content)
         content = re.sub(r'PHPIniDir\s+"[^"]+"', f'PHPIniDir "{escaped_root}/{active_php}"', content)
         
         httpd_conf.write_text(content, encoding="utf-8")
