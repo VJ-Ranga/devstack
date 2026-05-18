@@ -106,15 +106,20 @@ class AppsTab(QWidget):
         
         # Action Buttons
         self.wiz_action_layout = QHBoxLayout()
+        self.wiz_action_layout.setContentsMargins(160, 0, 0, 0) # Align perfectly with the input field start!
         self.wiz_action_layout.setSpacing(12)
         
         self.wiz_install_btn = QPushButton("Execute One-Click Install")
         self.wiz_install_btn.setObjectName("PrimaryButton")
+        self.wiz_install_btn.setFixedWidth(200)
+        self.wiz_install_btn.setCursor(Qt.PointingHandCursor)
         self.wiz_install_btn.clicked.connect(self._run_installer)
         self.wiz_action_layout.addWidget(self.wiz_install_btn)
         
         self.wiz_cancel_btn = QPushButton("Cancel")
         self.wiz_cancel_btn.setObjectName("DefaultButton")
+        self.wiz_cancel_btn.setFixedWidth(100)
+        self.wiz_cancel_btn.setCursor(Qt.PointingHandCursor)
         self.wiz_cancel_btn.clicked.connect(self.show_grid)
         self.wiz_action_layout.addWidget(self.wiz_cancel_btn)
         self.wiz_action_layout.addStretch(1)
@@ -137,21 +142,24 @@ class AppsTab(QWidget):
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setFixedHeight(12)
+        self.progress_bar.setMaximumWidth(600)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
-        self.progress_layout.addWidget(self.progress_bar)
+        self.progress_layout.addWidget(self.progress_bar, 0, Qt.AlignCenter)
         
         self.progress_msg = QLabel("Downloading official release archives...")
         self.progress_msg.setObjectName("BodyText")
         self.progress_msg.setAlignment(Qt.AlignCenter)
-        self.progress_layout.addWidget(self.progress_msg)
+        self.progress_msg.setMaximumWidth(600)
+        self.progress_layout.addWidget(self.progress_msg, 0, Qt.AlignCenter)
         
         # Live log terminal
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setMinimumHeight(240)
+        self.log_console.setMaximumWidth(600)
         self.log_console.setStyleSheet("QPlainTextEdit { background-color: #1E1B18; color: #BF8E3B; border: 1px solid #E5E2DC; border-radius: 6px; font-family: Consolas, monospace; font-size: 11px; padding: 10px; }")
-        self.progress_layout.addWidget(self.log_console)
+        self.progress_layout.addWidget(self.log_console, 0, Qt.AlignCenter)
         
         # Dynamic completion action buttons
         self.completion_layout = QHBoxLayout()
@@ -216,9 +224,11 @@ class AppsTab(QWidget):
             
             inp = QLineEdit()
             inp.setText(field["default"])
+            inp.setMaximumWidth(450)
             if field["type"] == "password":
                 inp.setEchoMode(QLineEdit.Password)
-            row.addWidget(inp, 1)
+            row.addWidget(inp)
+            row.addStretch(1) # Prevent infinite stretching
             
             self.input_widgets[field["key"]] = inp
             self.inputs_layout.addLayout(row)
@@ -233,12 +243,14 @@ class AppsTab(QWidget):
         row.addWidget(lbl)
         
         self.php_select = QComboBox()
+        self.php_select.setMaximumWidth(450)
         # Discover all available PHP versions installed in stack root
         php_versions = discover_php_versions(self.main_window.get_stack_root())
         for php in php_versions:
             self.php_select.addItem(php["version"], php["folder"])
             
-        row.addWidget(self.php_select, 1)
+        row.addWidget(self.php_select)
+        row.addStretch(1) # Prevent infinite stretching
         self.inputs_layout.addLayout(row)
 
     def show_progress(self):
