@@ -47,8 +47,8 @@ class OverviewTab(QWidget):
         content = QWidget()
         content.setObjectName("TabPage")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         title = QLabel("Control Center")
         title.setObjectName("PageTitle")
@@ -62,8 +62,8 @@ class OverviewTab(QWidget):
         status_section = QFrame()
         status_section.setObjectName("Panel")
         status_layout = QVBoxLayout(status_section)
-        status_layout.setContentsMargins(20, 18, 20, 18)
-        status_layout.setSpacing(16)
+        status_layout.setContentsMargins(16, 12, 16, 12)
+        status_layout.setSpacing(12)
 
         top_row = QHBoxLayout()
         top_row.setSpacing(12)
@@ -186,9 +186,9 @@ class OverviewTab(QWidget):
         versions_panel = QFrame()
         versions_panel.setObjectName("Panel")
         versions_layout = QGridLayout(versions_panel)
-        versions_layout.setContentsMargins(20, 18, 20, 18)
+        versions_layout.setContentsMargins(16, 12, 16, 12)
         versions_layout.setHorizontalSpacing(12)
-        versions_layout.setVerticalSpacing(8)
+        versions_layout.setVerticalSpacing(6)
         for row_index, (key, text) in enumerate((("apache", "Apache"), ("nginx", "Nginx"), ("php", "PHP"), ("mysql", "MariaDB"))):
             label = QLabel(text)
             label.setObjectName("RowTitle")

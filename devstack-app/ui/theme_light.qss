@@ -331,12 +331,16 @@ QLabel#MetaBadge {
 }
 
 /* ==========================================================================
-   macOS Style Button Form Controls (Terracotta Accent & 12px Rounded)
+   macOS Style Button Form Controls (Terracotta Accent & 8px Rounded)
    ========================================================================== */
 QPushButton {
-    border-radius: 12px;
-    padding: 6px 14px;
+    border-radius: 6px;
     font-size: 12px;
+}
+
+QPushButton#PrimaryButton, QPushButton#DefaultButton, QPushButton#DangerButton {
+    border-radius: 8px;
+    padding: 4px 12px;
     font-weight: 700;
     min-height: {{BUTTON_HEIGHT}}px;
 }

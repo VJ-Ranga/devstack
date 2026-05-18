@@ -14,8 +14,8 @@ class LogsTab(QWidget):
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         title = QLabel("Logs")
         title.setObjectName("PageTitle")
@@ -33,7 +33,7 @@ class LogsTab(QWidget):
         controls_panel = QFrame()
         controls_panel.setObjectName("Panel")
         controls_layout = QHBoxLayout(controls_panel)
-        controls_layout.setContentsMargins(20, 18, 20, 18)
+        controls_layout.setContentsMargins(16, 12, 16, 12)
         controls_layout.setSpacing(8)
 
         source_label = QLabel("Source")

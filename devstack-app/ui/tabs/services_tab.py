@@ -44,8 +44,8 @@ class ServicesTab(QWidget):
         content = QWidget()
         content.setObjectName("TabPage")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(24, 24, 24, 24)
-        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
 
         title = QLabel("Services")
         title.setObjectName("PageTitle")
@@ -73,13 +73,13 @@ class ServicesTab(QWidget):
             row.setObjectName("ServiceRow")
             set_status_frame(row, "stopped")
             row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(14, 10, 14, 10)
-            row_layout.setSpacing(12)
+            row_layout.setContentsMargins(12, 8, 12, 8)
+            row_layout.setSpacing(10)
 
             icon_box = QFrame()
             icon_box.setObjectName("StatusIconBox")
             set_status_frame(icon_box, "stopped")
-            icon_box.setFixedSize(28, 28)
+            icon_box.setFixedSize(26, 26)
             
             icon_layout = QVBoxLayout(icon_box)
             icon_layout.setContentsMargins(0, 0, 0, 0)

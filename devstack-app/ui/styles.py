@@ -7,11 +7,11 @@ _THEME_PATH = Path(__file__).with_name("theme.qss")
 
 
 def density_button_height(density: str) -> int:
-    return 32 if density == "compact" else 36
+    return 28 if density == "compact" else 32
 
 
 def _tab_vpad(density: str) -> int:
-    return 8 if density == "compact" else 10
+    return 6 if density == "compact" else 8
 
 
 def build_stylesheet(density: str = "comfortable", theme: str = "light") -> str:

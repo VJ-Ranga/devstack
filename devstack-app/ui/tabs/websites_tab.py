@@ -27,8 +27,8 @@ class WebsitesTab(QWidget):
 
     def _setup_ui(self):
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(30, 30, 30, 30)
-        self.main_layout.setSpacing(20)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(14)
 
         # 1. Header with Title & Active PHP Version Selector
         header_row = QHBoxLayout()
@@ -49,8 +49,8 @@ class WebsitesTab(QWidget):
         self.php_selector_box.setObjectName("Panel")
         self.php_selector_box.setStyleSheet("QFrame#Panel { background-color: rgba(130, 130, 130, 0.05); border: 1px solid rgba(130, 130, 130, 0.12); border-radius: 8px; }")
         php_sel_layout = QHBoxLayout(self.php_selector_box)
-        php_sel_layout.setContentsMargins(12, 8, 12, 8)
-        php_sel_layout.setSpacing(8)
+        php_sel_layout.setContentsMargins(8, 4, 8, 4)
+        php_sel_layout.setSpacing(6)
 
         php_lbl = QLabel("Global PHP:")
         php_lbl.setStyleSheet("font-weight: bold; font-size: 11px;")
@@ -234,8 +234,8 @@ class SiteRow(QFrame):
 
     def _setup_row(self):
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(16)
+        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(12)
 
         # 1. App Glyph Icon
         icon_map = {
@@ -245,7 +245,7 @@ class SiteRow(QFrame):
             "custom_php": "⚡"
         }
         app_icon = QLabel(icon_map.get(self.site.get("app_id"), "🌐"))
-        app_icon.setStyleSheet("font-size: 20px;")
+        app_icon.setStyleSheet("font-size: 18px;")
         layout.addWidget(app_icon)
 
         # 2. Site Title and Folder Name block
@@ -270,7 +270,7 @@ class SiteRow(QFrame):
             font-size: 10px; 
             font-weight: bold; 
             border-radius: 4px; 
-            padding: 4px 8px; 
+            padding: 3px 6px; 
             border: none;
         """)
         layout.addWidget(app_badge)
@@ -282,63 +282,67 @@ class SiteRow(QFrame):
             background-color: rgba(130, 130, 130, 0.08); 
             border: 1px solid rgba(130, 130, 130, 0.15); 
             border-radius: 4px; 
-            padding: 4px 8px;
+            padding: 3px 6px;
         """)
         layout.addWidget(php_ver_lbl)
 
-        # 4. Inline Console Credentials panel
-        creds_layout = QHBoxLayout()
-        creds_layout.setContentsMargins(8, 2, 8, 2)
-        creds_layout.setSpacing(8)
+        # 4. Inline Console Credentials panel (only for CMS platforms like WordPress/Drupal)
+        app_id = self.site.get("app_id", "custom_php")
+        if app_id in ["wordpress", "drupal"]:
+            creds_layout = QHBoxLayout()
+            creds_layout.setContentsMargins(6, 2, 6, 2)
+            creds_layout.setSpacing(6)
 
-        user_val = self.site.get("admin_user", "admin")
-        user_lbl = QLabel(f"👤 {user_val}")
-        user_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
-        creds_layout.addWidget(user_lbl)
+            user_val = self.site.get("admin_user", "admin")
+            user_lbl = QLabel(f"👤 {user_val}")
+            user_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
+            creds_layout.addWidget(user_lbl)
 
-        copy_user_btn = QPushButton("📋")
-        copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
-        copy_user_btn.setCursor(Qt.PointingHandCursor)
-        copy_user_btn.setToolTip("Copy Username")
-        copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(user_val, "Username"))
-        creds_layout.addWidget(copy_user_btn)
+            copy_user_btn = QPushButton("📋")
+            copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            copy_user_btn.setCursor(Qt.PointingHandCursor)
+            copy_user_btn.setToolTip("Copy Username")
+            copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(user_val, "Username"))
+            creds_layout.addWidget(copy_user_btn)
 
-        # Divider
-        div = QFrame()
-        div.setFrameStyle(QFrame.VLine | QFrame.Plain)
-        div.setStyleSheet("color: rgba(130,130,130,0.15); max-width: 1px;")
-        creds_layout.addWidget(div)
+            # Divider
+            div = QFrame()
+            div.setFrameStyle(QFrame.VLine | QFrame.Plain)
+            div.setStyleSheet("color: rgba(130,130,130,0.15); max-width: 1px;")
+            creds_layout.addWidget(div)
 
-        pass_val = self.site.get("admin_pass", "admin123")
-        self.password_lbl = QLabel("🔑 ••••••••")
-        self.password_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
-        creds_layout.addWidget(self.password_lbl)
+            pass_val = self.site.get("admin_pass", "admin123")
+            self.password_lbl = QLabel("🔑 ••••••••")
+            self.password_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
+            creds_layout.addWidget(self.password_lbl)
 
-        reveal_btn = QPushButton("👁️")
-        reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
-        reveal_btn.setCursor(Qt.PointingHandCursor)
-        reveal_btn.setToolTip("Reveal/Hide Password")
-        reveal_btn.clicked.connect(self._toggle_password_visibility)
-        creds_layout.addWidget(reveal_btn)
+            reveal_btn = QPushButton("👁️")
+            reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            reveal_btn.setCursor(Qt.PointingHandCursor)
+            reveal_btn.setToolTip("Reveal/Hide Password")
+            reveal_btn.clicked.connect(self._toggle_password_visibility)
+            creds_layout.addWidget(reveal_btn)
 
-        copy_pass_btn = QPushButton("📋")
-        copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 16px; padding: 0;")
-        copy_pass_btn.setCursor(Qt.PointingHandCursor)
-        copy_pass_btn.setToolTip("Copy Password")
-        copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(pass_val, "Password"))
-        creds_layout.addWidget(copy_pass_btn)
+            copy_pass_btn = QPushButton("📋")
+            copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            copy_pass_btn.setCursor(Qt.PointingHandCursor)
+            copy_pass_btn.setToolTip("Copy Password")
+            copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(pass_val, "Password"))
+            creds_layout.addWidget(copy_pass_btn)
 
-        creds_panel = QFrame()
-        creds_panel.setObjectName("CredsBox")
-        creds_panel.setStyleSheet("""
-            QFrame#CredsBox {
-                background-color: rgba(130, 130, 130, 0.08); 
-                border: 1px solid rgba(130, 130, 130, 0.15); 
-                border-radius: 6px;
-            }
-        """)
-        creds_panel.setLayout(creds_layout)
-        layout.addWidget(creds_panel, 2)
+            creds_panel = QFrame()
+            creds_panel.setObjectName("CredsBox")
+            creds_panel.setStyleSheet("""
+                QFrame#CredsBox {
+                    background-color: rgba(130, 130, 130, 0.08); 
+                    border: 1px solid rgba(130, 130, 130, 0.15); 
+                    border-radius: 6px;
+                }
+            """)
+            creds_panel.setLayout(creds_layout)
+            layout.addWidget(creds_panel, 2)
+        else:
+            layout.addStretch(2)
 
         # 5. Compact Icon Action row
         action_layout = QHBoxLayout()
@@ -349,10 +353,12 @@ class SiteRow(QFrame):
         open_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(open_btn)
 
-        admin_btn = QPushButton("🔑 Admin")
-        admin_btn.setObjectName("DefaultButton")
-        admin_btn.setCursor(Qt.PointingHandCursor)
-        action_layout.addWidget(admin_btn)
+        if app_id in ["wordpress", "drupal"]:
+            admin_btn = QPushButton("🔑 Admin")
+            admin_btn.setObjectName("DefaultButton")
+            admin_btn.setCursor(Qt.PointingHandCursor)
+            action_layout.addWidget(admin_btn)
+            admin_btn.clicked.connect(self._open_admin)
 
         folder_btn = QPushButton("📁 Files")
         folder_btn.setObjectName("DefaultButton")
@@ -370,7 +376,6 @@ class SiteRow(QFrame):
 
         # Wire up open/files actions
         open_btn.clicked.connect(self._open_site)
-        admin_btn.clicked.connect(self._open_admin)
         folder_btn.clicked.connect(self._open_folder)
 
     def _toggle_password_visibility(self):
