@@ -12,7 +12,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('config/app-settings.json', 'config'),
-        ('data/sites.json', 'data'),
+        ('config/sites.json', 'config'),
     ],
     hiddenimports=[
         'PySide6.QtCore',

@@ -2,6 +2,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from core.config import load_settings
+
 
 _VERSION_CACHE = {}
 _CACHE_TTL_SECONDS = 60
@@ -65,16 +67,23 @@ def get_mysql_version(bin_dir: str) -> str:
 
 
 def get_all_versions(stack_root: str) -> dict:
+    settings = load_settings()
+    active_php_folder = settings.get("active_php_folder", "php")
+    active_php_dir = Path(stack_root) / active_php_folder
+    if not active_php_dir.exists():
+        active_php_dir = Path(stack_root) / "php"
+
+    cache_key = f"{stack_root}|{active_php_dir}"
     now = time.time()
-    cached = _VERSION_CACHE.get(stack_root)
+    cached = _VERSION_CACHE.get(cache_key)
     if cached and now - cached["timestamp"] < _CACHE_TTL_SECONDS:
         return cached["versions"].copy()
 
     versions = {
-        "php": get_php_version(str(Path(stack_root) / "php")),
+        "php": get_php_version(str(active_php_dir)),
         "apache": get_apache_version(str(Path(stack_root) / "apache" / "bin")),
         "nginx": get_nginx_version(str(Path(stack_root) / "nginx")),
         "mysql": get_mysql_version(str(Path(stack_root) / "mysql" / "bin")),
     }
-    _VERSION_CACHE[stack_root] = {"timestamp": now, "versions": versions}
+    _VERSION_CACHE[cache_key] = {"timestamp": now, "versions": versions}
     return versions.copy()

@@ -62,7 +62,6 @@ QFrame#Sidebar {
 }
 
 QLabel#BrandIcon {
-    font-family: "Segoe Fluent Icons";
     font-size: 16px;
     color: #E55B3C;
 }
@@ -96,7 +95,6 @@ QFrame#SidebarBtn[active="true"] {
 }
 
 QLabel#SidebarBtnIcon {
-    font-family: "Segoe Fluent Icons";
     font-size: 13px;
     color: #5E5B56;
 }
@@ -219,7 +217,6 @@ QFrame#QuickAccessIconBox {
 
 QLabel#QuickAccessIconGlyph {
     color: #E55B3C;
-    font-family: "Segoe Fluent Icons";
     font-size: 16px;
     font-weight: 400;
 }
@@ -279,7 +276,6 @@ QFrame#StatusIconBox[status="partial"] {
 }
 
 QLabel#StatusIconGlyph {
-    font-family: "Segoe Fluent Icons";
     font-size: 14px;
     color: #8C8780;
 }
@@ -334,15 +330,23 @@ QLabel#MetaBadge {
    macOS Style Button Form Controls (Terracotta Accent & 8px Rounded)
    ========================================================================== */
 QPushButton {
-    border-radius: 6px;
-    font-size: 12px;
-}
-
-QPushButton#PrimaryButton, QPushButton#DefaultButton, QPushButton#DangerButton {
+    background-color: #FFFFFF;
+    color: #1E1B18;
+    border: 1px solid #D9D6CE;
     border-radius: 8px;
-    padding: 4px 12px;
+    padding: 6px 14px;
+    font-size: 12px;
     font-weight: 700;
     min-height: {{BUTTON_HEIGHT}}px;
+}
+
+QPushButton:hover {
+    background-color: #FAF9F6;
+    border-color: #8C8780;
+}
+
+QPushButton:pressed {
+    background-color: #EBEBE6;
 }
 
 QPushButton#PrimaryButton {
@@ -389,12 +393,8 @@ QPushButton#DefaultButton:pressed {
 }
 
 QPushButton#ThemeToggleBtn {
-    background-color: #FFFFFF;
-    color: #1E1B18;
-    border: 1px solid #D9D6CE;
     min-height: 28px;
     padding: 4px 10px;
-    border-radius: 8px;
 }
 
 QPushButton#ThemeToggleBtn:hover {
@@ -565,4 +565,27 @@ QSpinBox::down-arrow {
 
 QSpinBox::down-arrow:hover {
     image: url("{{ASSETS_PATH}}/chevron_down_accent.svg");
+}
+
+QPlainTextEdit#LogConsole {
+    background-color: #F0EDE8;
+    color: #1E1B18;
+    border: 1px solid #E5E2DC;
+    border-radius: 8px;
+    selection-background-color: #E55B3C;
+    selection-color: #FFFFFF;
+}
+
+QLabel#StagePill {
+    background-color: #EBEBE6;
+    color: #8C8780;
+    border-radius: 10px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+QLabel#StagePill[active="true"] {
+    background-color: #E55B3C;
+    color: #FFFFFF;
 }

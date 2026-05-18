@@ -22,7 +22,6 @@ from ui.tabs.logs_tab import LogsTab
 from ui.tabs.overview_tab import OverviewTab
 from ui.tabs.services_tab import ServicesTab
 from ui.tabs.settings_tab import SettingsTab
-from ui.tabs.apps_tab import AppsTab
 from ui.tabs.websites_tab import WebsitesTab
 from ui.widgets import SidebarButton
 from ui.dialogs.customize_dialog import CustomizeUIDialog
@@ -47,6 +46,19 @@ class MainWindow(QMainWindow):
         self._pending_refresh = False
         self.setWindowTitle("DevStack Manager")
         self.resize(1000, 720)
+        
+        # Explicitly configure window icon to ensure taskbar renders it properly
+        import os
+        from PySide6.QtGui import QIcon
+        ui_dir = os.path.dirname(os.path.abspath(__file__))
+        app_dir = os.path.dirname(ui_dir)
+        icon_path = os.path.join(app_dir, "assets", "icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        else:
+            icon_path_alt = os.path.join(app_dir, "assets", "icon.ico")
+            if os.path.exists(icon_path_alt):
+                self.setWindowIcon(QIcon(icon_path_alt))
         
         # Load and apply custom screen size boundaries dynamically
         min_w = self.settings.get("min_width", 800)
@@ -81,7 +93,7 @@ class MainWindow(QMainWindow):
         brand_row.setContentsMargins(20, 10, 20, 15)
         brand_row.setSpacing(10)
         
-        brand_icon = QLabel("\uE7F4")
+        brand_icon = QLabel("⚡")
         brand_icon.setObjectName("BrandIcon")
         brand_row.addWidget(brand_icon)
         
@@ -105,12 +117,11 @@ class MainWindow(QMainWindow):
         
         self.nav_buttons = []
         nav_data = [
-            ("Control", "\uE80F", 0),
-            ("Websites", "\uE774", 1),
-            ("Services", "\uE7F4", 2),
-            ("Logs", "\uE9D2", 3),
-            ("App Store", "\uE719", 4),
-            ("Settings", "\uE713", 5),
+            ("Control", "🏠", 0),
+            ("Websites", "🌐", 1),
+            ("Services", "⚙️", 2),
+            ("Logs", "📋", 3),
+            ("Settings", "🔧", 4),
         ]
         
         for title, glyph, idx in nav_data:
@@ -158,14 +169,12 @@ class MainWindow(QMainWindow):
         self.websites_tab = WebsitesTab(self)
         self.services_tab = ServicesTab(self)
         self.logs_tab = LogsTab(self)
-        self.apps_tab = AppsTab(self)
         self.settings_tab = SettingsTab(self)
         
         self.pages.addWidget(self.overview_tab)
         self.pages.addWidget(self.websites_tab)
         self.pages.addWidget(self.services_tab)
         self.pages.addWidget(self.logs_tab)
-        self.pages.addWidget(self.apps_tab)
         self.pages.addWidget(self.settings_tab)
         
         main_layout.addWidget(self.pages)
@@ -180,25 +189,16 @@ class MainWindow(QMainWindow):
         self._refresh_all()
 
     def _setup_menubar(self):
-        file_menu = self.menuBar().addMenu("File")
-        
-        customize_action = QAction("Customize UI Options...", self)
+        menubar = self.menuBar()
+
+        customize_action = QAction("UI Customize", self)
         customize_action.triggered.connect(self._show_customize_dialog)
-        file_menu.addAction(customize_action)
-        
-        exit_action = QAction("Exit", self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        menubar.addAction(customize_action)
 
-        customize_menu = self.menuBar().addMenu("Customize")
-        customize_menu_action = QAction("Customize Design System...", self)
-        customize_menu_action.triggered.connect(self._show_customize_dialog)
-        customize_menu.addAction(customize_menu_action)
-
-        help_menu = self.menuBar().addMenu("Help")
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
-        help_menu.addAction(about_action)
+        menubar.addAction(about_action)
+
 
     def _show_customize_dialog(self):
         dialog = CustomizeUIDialog(self)

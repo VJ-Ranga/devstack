@@ -1,5 +1,6 @@
 import sys
 import os
+import traceback
 
 # Enable proper Windows taskbar icon rendering
 if sys.platform == "win32":
@@ -17,6 +18,10 @@ from ui.main_window import MainWindow
 
 
 def main():
+    def _global_excepthook(exc_type, exc_value, exc_tb):
+        traceback.print_exception(exc_type, exc_value, exc_tb)
+    sys.excepthook = _global_excepthook
+
     app = QApplication(sys.argv)
     styles = {name.lower(): name for name in QStyleFactory.keys()}
     if "windowsvista" in styles:

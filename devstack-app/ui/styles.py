@@ -8,11 +8,11 @@ _THEME_PATH = Path(__file__).with_name("theme.qss")
 
 
 def density_button_height(density: str) -> int:
-    return 28 if density == "compact" else 32
+    return 25 if density == "compact" else 30
 
 
 def _tab_vpad(density: str) -> int:
-    return 6 if density == "compact" else 8
+    return 8 if density == "compact" else 10
 
 
 def _adjust_hex_color(hex_str: str, amount: int) -> str:
@@ -46,17 +46,17 @@ def build_stylesheet(density: str = "comfortable", theme: str = "light") -> str:
     settings = load_settings()
     
     # 1. Custom Button Height / Paddings
-    btn_height = settings.get("btn_height", density_button_height(density))
+    btn_height = max(25, int(settings.get("btn_height", density_button_height(density))))
     qss = qss.replace("{{BUTTON_HEIGHT}}", str(btn_height))
     
     # Custom Button Padding / Spacing inside the QSS
-    btn_padding_v = settings.get("btn_padding_v", 4)
-    btn_padding_h = settings.get("btn_padding_h", 12)
-    qss = qss.replace("padding: 4px 12px;", f"padding: {btn_padding_v}px {btn_padding_h}px;")
+    btn_padding_v = settings.get("btn_padding_v", 6)
+    btn_padding_h = settings.get("btn_padding_h", 16)
+    qss = qss.replace("padding: 6px 14px;", f"padding: {btn_padding_v}px {btn_padding_h}px;")
     
     # Button Margin gaps
-    btn_margin_v = settings.get("btn_margin_v", 3)
-    btn_margin_h = settings.get("btn_margin_h", 12)
+    btn_margin_v = settings.get("btn_margin_v", 4)
+    btn_margin_h = settings.get("btn_margin_h", 14)
     qss = qss.replace("margin: 3px 12px;", f"margin: {btn_margin_v}px {btn_margin_h}px;")
     
     qss = qss.replace("{{TAB_VPAD}}", str(_tab_vpad(density)))
@@ -129,11 +129,11 @@ def set_status_badge(widget, status: str):
 
 
 FLUENT_GLYPHS = {
-    "nginx": "N",
-    "apache": "A",
-    "phpmyadmin": "DB",
-    "dashboard": "W",
-    "running": "OK",
-    "stopped": "X",
-    "partial": "!",
+    "nginx": "🌐",
+    "apache": "🖥️",
+    "phpmyadmin": "💾",
+    "dashboard": "🏠",
+    "running": "🟢",
+    "stopped": "🔴",
+    "partial": "🟡",
 }

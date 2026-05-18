@@ -25,7 +25,7 @@ SERVICES = {
     "mysql": {
         "name": "MariaDB", "process": "mysqld.exe", "port": 3306,
         "exe": "mysql/bin/mysqld.exe",
-        "args": ["--defaults-file={root}/mysql/my.ini", "--skip-name-resolve"],
+        "args": ["--defaults-file={root}/mysql/my.ini", "--init-file={root}/mysql/devstack-grants.sql"],
         "wd": "{root}/mysql/bin",
     },
 }
@@ -66,6 +66,26 @@ def _kill(exe_name: str) -> None:
         if not _is_running(exe_name):
             return
         time.sleep(1)
+
+
+def _stop_apache_graceful(stack_root: str) -> None:
+    httpd = Path(stack_root) / "apache" / "bin" / "httpd.exe"
+    if not httpd.exists():
+        return
+    try:
+        subprocess.run(
+            [str(httpd), "-k", "shutdown", "-d", str(Path(stack_root) / "apache")],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            creationflags=_flags(),
+        )
+    except Exception:
+        pass
+    for _ in range(8):
+        if not _is_running("httpd.exe"):
+            return
+        time.sleep(0.5)
 
 
 def _wait_for(name: str, timeout: int) -> bool:
@@ -149,7 +169,11 @@ def start(stack_root: str, service: str = "all") -> dict:
     SERVICES["nginx"]["port"] = nginx_port
     SERVICES["php"]["port"] = php_port
     SERVICES["mysql"]["port"] = mysql_port
-    SERVICES["mysql"]["args"] = ["--defaults-file={root}/mysql/my.ini", f"--port={mysql_port}", "--skip-name-resolve", "--skip-grant-tables"]
+    SERVICES["mysql"]["args"] = [
+        "--defaults-file={root}/mysql/my.ini",
+        f"--port={mysql_port}",
+        "--init-file={root}/mysql/devstack-grants.sql",
+    ]
 
     active_php = settings.get("active_php_folder", "php")
     SERVICES["php"]["exe"] = f"{active_php}/php-cgi.exe"
@@ -170,6 +194,8 @@ def start(stack_root: str, service: str = "all") -> dict:
         svc = SERVICES.get(k)
         if not svc:
             return {"success": False, "error": f"Unknown service: {k}"}
+        if k == "apache":
+            _stop_apache_graceful(stack_root)
         _kill(svc["process"])
 
     time.sleep(1)
@@ -233,6 +259,8 @@ def stop(stack_root: str, service: str = "all") -> dict:
             return {"success": False, "error": f"Unknown service: {service}"}
         names = [svc["process"]]
     for name in names:
+        if name.lower() == "httpd.exe":
+            _stop_apache_graceful(stack_root)
         _kill(name)
     return {"success": True}
 

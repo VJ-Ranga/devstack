@@ -226,7 +226,6 @@ class SettingsTab(QWidget):
 
         self.dl_dismiss_btn = QPushButton("Dismiss Console")
         self.dl_dismiss_btn.setObjectName("DefaultButton")
-        self.dl_dismiss_btn.setFixedHeight(26)
         self.dl_dismiss_btn.clicked.connect(self.dl_progress_frame.hide)
         self.dl_dismiss_btn.hide()
         dl_prog_layout.addWidget(self.dl_dismiss_btn)
@@ -486,6 +485,16 @@ class SettingsTab(QWidget):
 
     def apply_density(self, density: str):
         h = density_button_height(density)
-        for btn in (self.browse_btn, self.save_btn, self.reset_btn):
-            btn.setFixedHeight(h)
-            repolish(btn)
+        buttons = (
+            self.browse_btn,
+            self.save_btn,
+            self.reset_btn,
+            getattr(self, "save_php_ini_btn", None),
+            getattr(self, "switch_php_btn", None),
+            getattr(self, "dl_btn", None),
+            getattr(self, "dl_dismiss_btn", None)
+        )
+        for btn in buttons:
+            if btn:
+                btn.setFixedHeight(h)
+                repolish(btn)
