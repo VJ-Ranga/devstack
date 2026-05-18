@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
+    QFormLayout,
     QLabel,
     QPushButton,
     QFrame,
@@ -26,10 +27,10 @@ class AppsTab(QWidget):
         self.main_window = main_window
         self.setObjectName("TabPage")
         
-        # Main dynamic layout
+        # Main dynamic layout (highly compact and tight margin)
         self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(30, 30, 30, 30)
-        self.main_layout.setSpacing(20)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        self.main_layout.setSpacing(12)
         
         # Initialize sub-screens
         self._init_header()
@@ -42,7 +43,7 @@ class AppsTab(QWidget):
 
     def _init_header(self):
         self.header_layout = QVBoxLayout()
-        self.header_layout.setSpacing(4)
+        self.header_layout.setSpacing(2)
         
         self.section_lbl = QLabel("PLUGGABLE ENGINE")
         self.section_lbl.setObjectName("SectionLabel")
@@ -67,7 +68,7 @@ class AppsTab(QWidget):
         self.grid_container = QWidget()
         self.grid_container.setObjectName("TabPage")
         self.grid_layout = QHBoxLayout(self.grid_container)
-        self.grid_layout.setSpacing(20)
+        self.grid_layout.setSpacing(16)
         self.grid_layout.setAlignment(Qt.AlignLeft | Qt.AlignTop)
         
         # Populate App Cards
@@ -82,13 +83,14 @@ class AppsTab(QWidget):
         self.wizard_frame = QFrame()
         self.wizard_frame.setObjectName("Panel")
         self.wizard_layout = QVBoxLayout(self.wizard_frame)
-        self.wizard_layout.setContentsMargins(25, 25, 25, 25)
-        self.wizard_layout.setSpacing(16)
+        self.wizard_layout.setContentsMargins(20, 16, 20, 16)
+        self.wizard_layout.setSpacing(12)
         
         # Back Button
         back_btn = QPushButton("← Return to App Store")
         back_btn.setObjectName("DefaultButton")
-        back_btn.setFixedWidth(180)
+        back_btn.setFixedWidth(160)
+        back_btn.setFixedHeight(28)
         back_btn.clicked.connect(self.show_grid)
         self.wizard_layout.addWidget(back_btn)
         
@@ -97,42 +99,47 @@ class AppsTab(QWidget):
         self.wiz_title.setObjectName("SummaryTitle")
         self.wizard_layout.addWidget(self.wiz_title)
         
-        # Dynamic inputs container
+        # Dynamic inputs container using standard QFormLayout
         self.inputs_container = QWidget()
-        self.inputs_layout = QVBoxLayout(self.inputs_container)
+        self.inputs_layout = QFormLayout(self.inputs_container)
         self.inputs_layout.setContentsMargins(0, 0, 0, 0)
-        self.inputs_layout.setSpacing(12)
+        self.inputs_layout.setSpacing(8) # Compact spacing
         self.wizard_layout.addWidget(self.inputs_container)
         
-        # Action Buttons
+        # Action Buttons Layout (to be nested dynamically in the form)
         self.wiz_action_layout = QHBoxLayout()
-        self.wiz_action_layout.setContentsMargins(160, 0, 0, 0) # Align perfectly with the input field start!
-        self.wiz_action_layout.setSpacing(12)
+        self.wiz_action_layout.setSpacing(8)
         
         self.wiz_install_btn = QPushButton("Execute One-Click Install")
         self.wiz_install_btn.setObjectName("PrimaryButton")
-        self.wiz_install_btn.setFixedWidth(200)
+        self.wiz_install_btn.setMinimumWidth(150)
+        self.wiz_install_btn.setMaximumWidth(200)
+        self.wiz_install_btn.setFixedHeight(28)
         self.wiz_install_btn.setCursor(Qt.PointingHandCursor)
         self.wiz_install_btn.clicked.connect(self._run_installer)
         self.wiz_action_layout.addWidget(self.wiz_install_btn)
         
         self.wiz_cancel_btn = QPushButton("Cancel")
         self.wiz_cancel_btn.setObjectName("DefaultButton")
-        self.wiz_cancel_btn.setFixedWidth(100)
+        self.wiz_cancel_btn.setMinimumWidth(80)
+        self.wiz_cancel_btn.setMaximumWidth(100)
+        self.wiz_cancel_btn.setFixedHeight(28)
         self.wiz_cancel_btn.setCursor(Qt.PointingHandCursor)
         self.wiz_cancel_btn.clicked.connect(self.show_grid)
         self.wiz_action_layout.addWidget(self.wiz_cancel_btn)
         self.wiz_action_layout.addStretch(1)
         
-        self.wizard_layout.addLayout(self.wiz_action_layout)
+        # Bottom vertical stretch to prevent vertical layout squishing!
+        self.wizard_layout.addStretch(1)
+        
         self.main_layout.addWidget(self.wizard_frame)
 
     def _init_progress_view(self):
         self.progress_frame = QFrame()
         self.progress_frame.setObjectName("Panel")
         self.progress_layout = QVBoxLayout(self.progress_frame)
-        self.progress_layout.setContentsMargins(40, 40, 40, 40)
-        self.progress_layout.setSpacing(20)
+        self.progress_layout.setContentsMargins(30, 30, 30, 30)
+        self.progress_layout.setSpacing(16)
         self.progress_layout.setAlignment(Qt.AlignCenter)
         
         self.progress_title = QLabel("Installing Site...")
@@ -156,7 +163,7 @@ class AppsTab(QWidget):
         # Live log terminal
         self.log_console = QPlainTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMinimumHeight(240)
+        self.log_console.setMinimumHeight(200)
         self.log_console.setMaximumWidth(600)
         self.log_console.setStyleSheet("QPlainTextEdit { background-color: #1E1B18; color: #BF8E3B; border: 1px solid #E5E2DC; border-radius: 6px; font-family: Consolas, monospace; font-size: 11px; padding: 10px; }")
         self.progress_layout.addWidget(self.log_console, 0, Qt.AlignCenter)
@@ -168,13 +175,15 @@ class AppsTab(QWidget):
         
         self.success_button = QPushButton("🚀 Open Site in Browser")
         self.success_button.setObjectName("PrimaryButton")
-        self.success_button.setFixedWidth(200)
+        self.success_button.setFixedWidth(180)
+        self.success_button.setFixedHeight(28)
         self.success_button.clicked.connect(self._open_newly_installed_site)
         self.completion_layout.addWidget(self.success_button)
         
         self.done_button = QPushButton("Return to App Store")
         self.done_button.setObjectName("DefaultButton")
-        self.done_button.setFixedWidth(160)
+        self.done_button.setFixedWidth(140)
+        self.done_button.setFixedHeight(28)
         self.done_button.clicked.connect(self.show_grid)
         self.completion_layout.addWidget(self.done_button)
         
@@ -195,63 +204,40 @@ class AppsTab(QWidget):
         self.active_installer = installer_class
         self.wiz_title.setText(f"Install {installer_class.meta['name']}")
         
-        # Clear existing dynamic inputs safely (handles nested layouts and widgets)
-        while self.inputs_layout.count():
-            item = self.inputs_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.deleteLater()
-            else:
-                sublayout = item.layout()
-                if sublayout:
-                    while sublayout.count():
-                        subitem = sublayout.takeAt(0)
-                        subwidget = subitem.widget()
-                        if subwidget:
-                            subwidget.deleteLater()
+        # Clear QFormLayout dynamic rows cleanly
+        while self.inputs_layout.rowCount():
+            self.inputs_layout.removeRow(0)
             
         self.input_widgets = {}
         
-        # Build dynamic fields
+        # Build responsive dynamic rows
         for field in installer_class.get_inputs():
-            row = QHBoxLayout()
-            row.setSpacing(20)
-            
-            lbl = QLabel(field["label"])
-            lbl.setObjectName("RowTitle")
-            lbl.setFixedWidth(140)
-            row.addWidget(lbl)
-            
             inp = QLineEdit()
             inp.setText(field["default"])
+            
+            # Fluid sizing limits
+            inp.setMinimumWidth(200)
             inp.setMaximumWidth(450)
+            
             if field["type"] == "password":
                 inp.setEchoMode(QLineEdit.Password)
-            row.addWidget(inp)
-            row.addStretch(1) # Prevent infinite stretching
-            
+                
             self.input_widgets[field["key"]] = inp
-            self.inputs_layout.addLayout(row)
+            self.inputs_layout.addRow(field["label"], inp)
             
         # Add PHP version chooser dynamically
-        row = QHBoxLayout()
-        row.setSpacing(20)
-        
-        lbl = QLabel("PHP Version")
-        lbl.setObjectName("RowTitle")
-        lbl.setFixedWidth(140)
-        row.addWidget(lbl)
-        
         self.php_select = QComboBox()
+        self.php_select.setMinimumWidth(200)
         self.php_select.setMaximumWidth(450)
-        # Discover all available PHP versions installed in stack root
+        
         php_versions = discover_php_versions(self.main_window.get_stack_root())
         for php in php_versions:
             self.php_select.addItem(php["version"], php["folder"])
             
-        row.addWidget(self.php_select)
-        row.addStretch(1) # Prevent infinite stretching
-        self.inputs_layout.addLayout(row)
+        self.inputs_layout.addRow("PHP Version", self.php_select)
+        
+        # Add perfectly aligned action buttons directly as a form row
+        self.inputs_layout.addRow("", self.wiz_action_layout)
 
     def show_progress(self):
         self.scroll.hide()
@@ -388,6 +374,7 @@ class AppCard(QFrame):
         install_btn = QPushButton("Install")
         install_btn.setObjectName("PrimaryButton")
         install_btn.setFixedHeight(28)
+        install_btn.setCursor(Qt.PointingHandCursor)
         install_btn.clicked.connect(lambda: self.apps_tab.show_wizard(self.installer_class))
         layout.addWidget(install_btn)
 
