@@ -74,6 +74,10 @@ DEFAULT_SETTINGS = {
     "start_with_windows": False,
     "ui_density": "comfortable",
     "theme": "light",
+    "min_width": 800,
+    "min_height": 560,
+    "max_width": 16777215,
+    "max_height": 16777215,
 }
 
 

@@ -51,10 +51,13 @@ class MainWindow(QMainWindow):
         # Load and apply custom screen size boundaries dynamically
         min_w = self.settings.get("min_width", 800)
         min_h = self.settings.get("min_height", 560)
-        max_w = self.settings.get("max_width", 2000)
-        max_h = self.settings.get("max_height", 2000)
+        max_w = self.settings.get("max_width", 16777215)
+        max_h = self.settings.get("max_height", 16777215)
         self.setMinimumSize(min_w, min_h)
-        self.setMaximumSize(max_w, max_h)
+        if max_w < 16777215 and max_h < 16777215:
+            self.setMaximumSize(max_w, max_h)
+        else:
+            self.setMaximumSize(16777215, 16777215)
         
         self.stack_root = self.settings.get("stack_root", "")
 

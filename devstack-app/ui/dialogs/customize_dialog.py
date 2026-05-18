@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QWidget,
     QFrame,
+    QCheckBox,
 )
 from core.config import load_settings, save_settings
 
@@ -97,15 +98,27 @@ class CustomizeUIDialog(QDialog):
         self.min_h.setValue(self.settings.get("min_height", 560))
         form_layout.addRow("Minimum Height (px):", self.min_h)
 
+        # Maximize Button Capping option
+        self.limit_max_cb = QCheckBox("Apply Maximum Size Constraints")
+        self.limit_max_cb.setStyleSheet("font-weight: bold; margin-top: 4px; color: #E55B3C;")
+        has_max_limit = (self.settings.get("max_width", 16777215) < 16777215)
+        self.limit_max_cb.setChecked(has_max_limit)
+        form_layout.addRow("", self.limit_max_cb)
+
         self.max_w = QSpinBox()
         self.max_w.setRange(800, 5000)
-        self.max_w.setValue(self.settings.get("max_width", 2000))
+        self.max_w.setValue(self.settings.get("max_width", 2000) if has_max_limit else 2000)
+        self.max_w.setEnabled(has_max_limit)
         form_layout.addRow("Maximum Width (px):", self.max_w)
 
         self.max_h = QSpinBox()
         self.max_h.setRange(600, 4000)
-        self.max_h.setValue(self.settings.get("max_height", 2000))
+        self.max_h.setValue(self.settings.get("max_height", 2000) if has_max_limit else 2000)
+        self.max_h.setEnabled(has_max_limit)
         form_layout.addRow("Maximum Height (px):", self.max_h)
+
+        self.limit_max_cb.toggled.connect(self.max_w.setEnabled)
+        self.limit_max_cb.toggled.connect(self.max_h.setEnabled)
 
         # --- Section: Sizing & Spacing ---
         size_lbl = QLabel("FONT SIZING, PADDING & MARGIN GAP RULES")
@@ -248,8 +261,8 @@ class CustomizeUIDialog(QDialog):
             defaults = {
                 "min_width": 800,
                 "min_height": 560,
-                "max_width": 2000,
-                "max_height": 2000,
+                "max_width": 16777215, # Unlimited defaults
+                "max_height": 16777215, # Unlimited defaults
                 "accent_color": "#E55B3C",
                 "sidebar_bg_color": "",
                 "app_bg_color": "",
@@ -268,6 +281,7 @@ class CustomizeUIDialog(QDialog):
             # Update dialog fields instantly
             self.min_w.setValue(800)
             self.min_h.setValue(560)
+            self.limit_max_cb.setChecked(False)
             self.max_w.setValue(2000)
             self.max_h.setValue(2000)
             self.font_size.setValue(13)
@@ -284,7 +298,7 @@ class CustomizeUIDialog(QDialog):
 
             # Propagate style changes to Main Window
             self.main_window.setMinimumSize(800, 560)
-            self.main_window.setMaximumSize(2000, 2000)
+            self.main_window.setMaximumSize(16777215, 16777215)
             self.main_window.apply_settings(self.settings)
             QMessageBox.information(self, "Styles Reset", "UI design token defaults successfully re-applied.")
             self.accept()
@@ -293,8 +307,12 @@ class CustomizeUIDialog(QDialog):
         # Update bounds values
         self.settings["min_width"] = self.min_w.value()
         self.settings["min_height"] = self.min_h.value()
-        self.settings["max_width"] = self.max_w.value()
-        self.settings["max_height"] = self.max_h.value()
+        if self.limit_max_cb.isChecked():
+            self.settings["max_width"] = self.max_w.value()
+            self.settings["max_height"] = self.max_h.value()
+        else:
+            self.settings["max_width"] = 16777215
+            self.settings["max_height"] = 16777215
 
         # Update styling spacing & sizes values
         self.settings["base_font_size"] = self.font_size.value()
@@ -331,7 +349,10 @@ class CustomizeUIDialog(QDialog):
 
         # Propagate changes to parent MainWindow instantly
         self.main_window.setMinimumSize(self.settings["min_width"], self.settings["min_height"])
-        self.main_window.setMaximumSize(self.settings["max_width"], self.settings["max_height"])
+        if self.settings["max_width"] < 16777215:
+            self.main_window.setMaximumSize(self.settings["max_width"], self.settings["max_height"])
+        else:
+            self.main_window.setMaximumSize(16777215, 16777215)
         self.main_window.apply_settings(self.settings)
 
         self.accept()
