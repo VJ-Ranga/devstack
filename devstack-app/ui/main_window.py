@@ -25,6 +25,7 @@ from ui.tabs.settings_tab import SettingsTab
 from ui.tabs.apps_tab import AppsTab
 from ui.tabs.websites_tab import WebsitesTab
 from ui.widgets import SidebarButton
+from ui.dialogs.customize_dialog import CustomizeUIDialog
 
 
 class RefreshWorker(QThread):
@@ -46,7 +47,15 @@ class MainWindow(QMainWindow):
         self._pending_refresh = False
         self.setWindowTitle("DevStack Manager")
         self.resize(1000, 720)
-        self.setMinimumSize(800, 560)
+        
+        # Load and apply custom screen size boundaries dynamically
+        min_w = self.settings.get("min_width", 800)
+        min_h = self.settings.get("min_height", 560)
+        max_w = self.settings.get("max_width", 2000)
+        max_h = self.settings.get("max_height", 2000)
+        self.setMinimumSize(min_w, min_h)
+        self.setMaximumSize(max_w, max_h)
+        
         self.stack_root = self.settings.get("stack_root", "")
 
         central = QWidget()
@@ -169,14 +178,28 @@ class MainWindow(QMainWindow):
 
     def _setup_menubar(self):
         file_menu = self.menuBar().addMenu("File")
+        
+        customize_action = QAction("Customize UI Options...", self)
+        customize_action.triggered.connect(self._show_customize_dialog)
+        file_menu.addAction(customize_action)
+        
         exit_action = QAction("Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        customize_menu = self.menuBar().addMenu("Customize")
+        customize_menu_action = QAction("Customize Design System...", self)
+        customize_menu_action.triggered.connect(self._show_customize_dialog)
+        customize_menu.addAction(customize_menu_action)
 
         help_menu = self.menuBar().addMenu("Help")
         about_action = QAction("About", self)
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
+
+    def _show_customize_dialog(self):
+        dialog = CustomizeUIDialog(self)
+        dialog.exec()
 
     def _show_about(self):
         QMessageBox.about(
