@@ -172,3 +172,19 @@ The DevStack Manager will **automatically discover** the class at runtime, map i
 ### 3. Lingering Service Port Locks (Solved)
 * **The Problem**: Restarting services too quickly caused TCP socket binding conflicts.
 * **The Fix**: `taskkill` is called with tree-kill `/t` arguments, recursively harvesting all orphaned worker nodes.
+
+---
+
+## 🎨 Front-End Design: CSS & Icon Systems
+
+To keep DevStack **100% portable**, lightweight, and high-performance, we bypass heavy web compilers (like Webpack or Tailwind) and bloated asset folders. Instead, we use:
+
+### 1. 💅 Qt Style Sheets (QSS) — The CSS Engine
+* **Technology**: QSS is Qt's optimized implementation of the **W3C CSS 2.1 specification**.
+* **Stylesheets**: Located at `devstack-app/ui/theme_light.qss` (Light theme) and `devstack-app/ui/theme_dark.qss` (Dark theme).
+* **Syntax**: Write clean, standard CSS selectors matching your UI widget object names or native classes (e.g. `QPushButton#PrimaryButton`, `QLabel#RowTitle`, `QFrame#Panel:hover`).
+
+### 2. 🔤 Segoe MDL2 Assets & Fluent Icons — The Icon Engine
+* **Technology**: Built-in Windows system vector icon library.
+* **Why**: It is pre-installed on all Windows 10/11 machines natively. This removes the need for external `.svg`, `.png`, or custom icon files, reducing the app size to absolute zero while delivering gorgeous vector scaling.
+* **Usage**: Set the font-family of the QLabel or QPushButton to `'Segoe MDL2 Assets'`, and specify its Unicode character code point (e.g., `\uE713` for settings, `\uE77B` for users, `\uE8C8` for copy/paste, `\uE74D` for trash-bin deletes).
