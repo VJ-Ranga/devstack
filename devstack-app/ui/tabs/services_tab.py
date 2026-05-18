@@ -119,19 +119,19 @@ class ServicesTab(QWidget):
             actions = QHBoxLayout()
             actions.setSpacing(6)
 
-            action_btn = QPushButton("▶ Start")
+            action_btn = QPushButton("Start")
             action_btn.setObjectName("PrimaryButton")
             action_btn.clicked.connect(lambda checked=False, k=key: self._on_action_btn_clicked(k))
             actions.addWidget(action_btn)
 
-            restart_btn = QPushButton("🔄 Restart")
+            restart_btn = QPushButton("Restart")
             restart_btn.setObjectName("DefaultButton")
             restart_btn.clicked.connect(lambda checked=False, k=key: self._run_action(k, "restart"))
             actions.addWidget(restart_btn)
 
             open_btn = None
             if open_target:
-                open_btn = QPushButton("🌐 Open")
+                open_btn = QPushButton("Open")
                 open_btn.setObjectName("DefaultButton")
                 open_btn.clicked.connect(lambda checked=False, t=open_target: self.main_window.open_target(t))
                 actions.addWidget(open_btn)
@@ -214,10 +214,10 @@ class ServicesTab(QWidget):
             action_btn = data.get("action_btn")
             if action_btn:
                 if is_running:
-                    action_btn.setText("⏹ Stop")
+                    action_btn.setText("Stop")
                     action_btn.setObjectName("DangerButton")
                 else:
-                    action_btn.setText("▶ Start")
+                    action_btn.setText("Start")
                     action_btn.setObjectName("PrimaryButton")
                 repolish(action_btn)
                 action_btn.setEnabled(True)

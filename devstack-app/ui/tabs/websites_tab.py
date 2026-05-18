@@ -85,8 +85,8 @@ class WebsitesTab(QWidget):
             empty_layout.setAlignment(Qt.AlignCenter)
             empty_layout.setSpacing(12)
 
-            empty_icon = QLabel("🌐")
-            empty_icon.setStyleSheet("font-size: 48px;")
+            empty_icon = QLabel("\uE774")
+            empty_icon.setStyleSheet("font-family: 'Segoe MDL2 Assets'; font-size: 48px; color: rgba(130, 130, 130, 0.4);")
             empty_layout.addWidget(empty_icon, 0, Qt.AlignCenter)
 
             empty_title = QLabel("No installed websites found.")
@@ -173,15 +173,21 @@ class SiteRow(QFrame):
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(12)
 
-        # 1. App Glyph Icon
+        # 1. App Glyph Icon using Segoe MDL2 Assets for modern, single-color clean icons
         icon_map = {
-            "wordpress": "📝",
-            "drupal": "💧",
-            "laravel": "🌶️",
-            "custom_php": "⚡"
+            "wordpress": "\uE70F",      # Edit/Write outline
+            "drupal": "\uE909",         # Water drop outline
+            "laravel": "\uE74C",        # Developer box/package outline
+            "custom_php": "\uE7B9",     # Lightning outline
         }
-        app_icon = QLabel(icon_map.get(self.site.get("app_id"), "🌐"))
-        app_icon.setStyleSheet("font-size: 18px;")
+        glyph = icon_map.get(self.site.get("app_id"), "\uE774")
+        app_icon = QLabel(glyph)
+        app_icon.setStyleSheet("""
+            font-family: 'Segoe MDL2 Assets';
+            font-size: 16px;
+            color: #E55B3C;
+            padding-right: 4px;
+        """)
         layout.addWidget(app_icon)
 
         # 2. Site Title and Folder Name block
@@ -230,12 +236,12 @@ class SiteRow(QFrame):
             creds_layout.setSpacing(6)
 
             user_val = self.site.get("admin_user", "admin")
-            user_lbl = QLabel(f"👤 {user_val}")
-            user_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
+            user_lbl = QLabel(f"\uE77B  {user_val}")
+            user_lbl.setStyleSheet("font-family: 'Segoe MDL2 Assets', 'Segoe UI'; font-size: 10px; font-weight: bold;")
             creds_layout.addWidget(user_lbl)
 
-            copy_user_btn = QPushButton("📋")
-            copy_user_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            copy_user_btn = QPushButton("\uE8C8")
+            copy_user_btn.setStyleSheet("font-family: 'Segoe MDL2 Assets'; border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0; color: #E55B3C;")
             copy_user_btn.setCursor(Qt.PointingHandCursor)
             copy_user_btn.setToolTip("Copy Username")
             copy_user_btn.clicked.connect(lambda: self._copy_to_clipboard(user_val, "Username"))
@@ -248,19 +254,19 @@ class SiteRow(QFrame):
             creds_layout.addWidget(div)
 
             pass_val = self.site.get("admin_pass", "admin123")
-            self.password_lbl = QLabel("🔑 ••••••••")
-            self.password_lbl.setStyleSheet("font-size: 10px; font-weight: bold;")
+            self.password_lbl = QLabel("\uE785  ••••••••")
+            self.password_lbl.setStyleSheet("font-family: 'Segoe MDL2 Assets', 'Segoe UI'; font-size: 10px; font-weight: bold;")
             creds_layout.addWidget(self.password_lbl)
 
-            reveal_btn = QPushButton("👁️")
-            reveal_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            reveal_btn = QPushButton("\uE7B3")
+            reveal_btn.setStyleSheet("font-family: 'Segoe MDL2 Assets'; border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0; color: #E55B3C;")
             reveal_btn.setCursor(Qt.PointingHandCursor)
             reveal_btn.setToolTip("Reveal/Hide Password")
             reveal_btn.clicked.connect(self._toggle_password_visibility)
             creds_layout.addWidget(reveal_btn)
 
-            copy_pass_btn = QPushButton("📋")
-            copy_pass_btn.setStyleSheet("border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0;")
+            copy_pass_btn = QPushButton("\uE8C8")
+            copy_pass_btn.setStyleSheet("font-family: 'Segoe MDL2 Assets'; border: none; background: transparent; font-size: 9px; max-width: 14px; padding: 0; color: #E55B3C;")
             copy_pass_btn.setCursor(Qt.PointingHandCursor)
             copy_pass_btn.setToolTip("Copy Password")
             copy_pass_btn.clicked.connect(lambda: self._copy_to_clipboard(pass_val, "Password"))
@@ -284,25 +290,26 @@ class SiteRow(QFrame):
         action_layout = QHBoxLayout()
         action_layout.setSpacing(6)
 
-        open_btn = QPushButton("🌐 Open")
+        open_btn = QPushButton("Open")
         open_btn.setObjectName("PrimaryButton")
         open_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(open_btn)
 
         if app_id in ["wordpress", "drupal"]:
-            admin_btn = QPushButton("🔑 Admin")
+            admin_btn = QPushButton("Admin")
             admin_btn.setObjectName("DefaultButton")
             admin_btn.setCursor(Qt.PointingHandCursor)
             action_layout.addWidget(admin_btn)
             admin_btn.clicked.connect(self._open_admin)
 
-        folder_btn = QPushButton("📁 Files")
+        folder_btn = QPushButton("Files")
         folder_btn.setObjectName("DefaultButton")
         folder_btn.setCursor(Qt.PointingHandCursor)
         action_layout.addWidget(folder_btn)
 
-        delete_btn = QPushButton("🗑️")
+        delete_btn = QPushButton("\uE74D")
         delete_btn.setObjectName("DangerButton")
+        delete_btn.setStyleSheet("font-family: 'Segoe MDL2 Assets'; font-size: 11px;")
         delete_btn.setCursor(Qt.PointingHandCursor)
         delete_btn.setToolTip("Delete Website")
         delete_btn.clicked.connect(self._delete_site_handler)
@@ -316,10 +323,10 @@ class SiteRow(QFrame):
 
     def _toggle_password_visibility(self):
         pass_val = self.site.get("admin_pass", "admin123")
-        if self.password_lbl.text() == "🔑 ••••••••":
-            self.password_lbl.setText(f"🔑 {pass_val}")
+        if self.password_lbl.text().endswith("••••••••"):
+            self.password_lbl.setText(f"\uE785  {pass_val}")
         else:
-            self.password_lbl.setText("🔑 ••••••••")
+            self.password_lbl.setText(f"\uE785  ••••••••")
 
     def _copy_to_clipboard(self, text, label):
         clipboard = QApplication.clipboard()
