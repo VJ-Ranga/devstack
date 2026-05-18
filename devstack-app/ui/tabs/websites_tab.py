@@ -43,30 +43,6 @@ class WebsitesTab(QWidget):
         self.subtitle.setObjectName("BodyText")
         title_block.addWidget(self.subtitle)
         header_row.addLayout(title_block, 1)
-
-        # Global Active PHP selector at the header
-        self.php_selector_box = QFrame()
-        self.php_selector_box.setObjectName("Panel")
-        self.php_selector_box.setStyleSheet("QFrame#Panel { background-color: rgba(130, 130, 130, 0.05); border: 1px solid rgba(130, 130, 130, 0.12); border-radius: 8px; }")
-        php_sel_layout = QHBoxLayout(self.php_selector_box)
-        php_sel_layout.setContentsMargins(8, 4, 8, 4)
-        php_sel_layout.setSpacing(6)
-
-        php_lbl = QLabel("Global PHP:")
-        php_lbl.setStyleSheet("font-weight: bold; font-size: 11px;")
-        php_sel_layout.addWidget(php_lbl)
-
-        self.global_php_select = QComboBox()
-        self.global_php_select.setFixedWidth(130)
-        php_sel_layout.addWidget(self.global_php_select)
-
-        self.apply_php_btn = QPushButton("Apply")
-        self.apply_php_btn.setObjectName("PrimaryButton")
-        self.apply_php_btn.setFixedWidth(60)
-        self.apply_php_btn.clicked.connect(self._apply_global_php_version)
-        php_sel_layout.addWidget(self.apply_php_btn)
-
-        header_row.addWidget(self.php_selector_box)
         self.main_layout.addLayout(header_row)
 
         # 2. Scrollable Sites Compact List
@@ -98,19 +74,6 @@ class WebsitesTab(QWidget):
             widget = item.widget()
             if widget:
                 widget.deleteLater()
-
-        # Reload discovered PHP versions in selector
-        self.global_php_select.clear()
-        settings = load_settings()
-        stack_root = settings.get("stack_root", "")
-        php_versions = discover_php_versions(stack_root)
-        active_folder = settings.get("active_php_folder", "php")
-        
-        for php in php_versions:
-            self.global_php_select.addItem(php["version"], php["folder"])
-            if php["folder"] == active_folder:
-                idx = self.global_php_select.count() - 1
-                self.global_php_select.setCurrentIndex(idx)
 
         # Load sites
         sites = load_sites()
@@ -187,33 +150,6 @@ class WebsitesTab(QWidget):
                     save_site(site_data)
                 except Exception as e:
                     print(f"Error saving scanned site: {e}")
-
-    def _apply_global_php_version(self):
-        folder = self.global_php_select.currentData()
-        version_text = self.global_php_select.currentText()
-        if not folder:
-            return
-            
-        settings = load_settings()
-        settings["active_php_folder"] = folder
-        save_settings(settings)
-
-        # Notify active main window settings update
-        self.main_window.settings = settings
-        self.main_window.apply_settings(settings)
-
-        # Trigger database restart to apply new path
-        QMessageBox.information(
-            self,
-            "PHP Version Changed",
-            f"Active PHP environment switched to **{version_text}**!\n\n"
-            "DevStack is applying these changes. We will stop and restart your services now to load the new binary.",
-        )
-        
-        # Stop and start services dynamically in background worker
-        self.main_window._refresh_all()
-        from core.service_manager import restart
-        restart(self.main_window.get_stack_root())
 
 
 class SiteRow(QFrame):
