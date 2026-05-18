@@ -220,7 +220,10 @@ class AppsTab(QWidget):
         # Build responsive dynamic rows
         for field in installer_class.get_inputs():
             inp = QLineEdit()
-            inp.setText(field["default"])
+            default_val = field["default"]
+            if field["key"] == "db_port":
+                default_val = str(self.main_window.settings.get("mysql_port", 3306))
+            inp.setText(default_val)
             
             if field["type"] == "password":
                 inp.setEchoMode(QLineEdit.Password)
