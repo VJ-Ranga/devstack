@@ -1,5 +1,6 @@
 import subprocess
 import time
+import re
 from pathlib import Path
 
 SERVICES = {
@@ -77,6 +78,61 @@ def _wait_for(name: str, timeout: int) -> bool:
     return False
 
 
+def _sync_nginx_config(stack_root: str, nginx_port: int) -> None:
+    nginx_conf = Path(stack_root) / "nginx" / "conf" / "nginx.conf"
+    if not nginx_conf.exists():
+        return
+    try:
+        content = nginx_conf.read_text(encoding="utf-8")
+        escaped_root = stack_root.replace("\\", "/")
+        content = re.sub(r'\blisten\s+\d+;', f'listen       {nginx_port};', content)
+        content = re.sub(r'\broot\s+[^;]+htdocs;', f'root   {escaped_root}/htdocs;', content)
+        nginx_conf.write_text(content, encoding="utf-8")
+    except Exception as e:
+        print(f"Error syncing Nginx config: {e}")
+
+
+def _sync_apache_config(stack_root: str, apache_port: int, active_php: str) -> None:
+    httpd_conf = Path(stack_root) / "apache" / "conf" / "httpd.conf"
+    if not httpd_conf.exists():
+        return
+    try:
+        content = httpd_conf.read_text(encoding="utf-8")
+        escaped_root = stack_root.replace("\\", "/")
+        content = re.sub(r'\bListen\s+\d+', f'Listen {apache_port}', content)
+        content = re.sub(r'\bServerName\s+localhost:\d+', f'ServerName localhost:{apache_port}', content)
+        content = re.sub(r'Define\s+SRVROOT\s+"[^"]+"', f'Define SRVROOT "{escaped_root}/apache"', content)
+        content = re.sub(r'DocumentRoot\s+"[^"]+"', f'DocumentRoot "{escaped_root}/htdocs"', content)
+        content = re.sub(r'<Directory\s+"[^"]+htdocs">', f'<Directory "{escaped_root}/htdocs">', content)
+        
+        dll_name = "php8apache2_4.dll"
+        if "php7" in active_php:
+            dll_name = "php7apache2_4.dll"
+        dll_path = f"{escaped_root}/{active_php}/{dll_name}"
+        
+        content = re.sub(r'LoadModule\s+php\d?_module\s+"[^"]+"', f'LoadModule php_module "{dll_path}"', content)
+        content = re.sub(r'PHPIniDir\s+"[^"]+"', f'PHPIniDir "{escaped_root}/{active_php}"', content)
+        
+        httpd_conf.write_text(content, encoding="utf-8")
+    except Exception as e:
+        print(f"Error syncing Apache config: {e}")
+
+
+def _sync_mysql_config(stack_root: str, mysql_port: int) -> None:
+    my_ini = Path(stack_root) / "mysql" / "my.ini"
+    if not my_ini.exists():
+        return
+    try:
+        content = my_ini.read_text(encoding="utf-8")
+        escaped_root = stack_root.replace("\\", "/")
+        content = re.sub(r'basedir\s*=\s*[^\n\r]+', f'basedir = "{escaped_root}/mysql"', content)
+        content = re.sub(r'datadir\s*=\s*[^\n\r]+', f'datadir = "{escaped_root}/mysql/data"', content)
+        content = re.sub(r'\bport\s*=\s*\d+', f'port = {mysql_port}', content)
+        my_ini.write_text(content, encoding="utf-8")
+    except Exception as e:
+        print(f"Error syncing MySQL config: {e}")
+
+
 def start(stack_root: str, service: str = "all") -> dict:
     from core.config import load_settings
     settings = load_settings()
@@ -95,6 +151,11 @@ def start(stack_root: str, service: str = "all") -> dict:
     SERVICES["php"]["exe"] = f"{active_php}/php-cgi.exe"
     SERVICES["php"]["args"] = ["-b", f"127.0.0.1:{php_port}", "-c", f"{{root}}/{active_php}/php.ini"]
     SERVICES["php"]["wd"] = f"{{root}}/{active_php}"
+
+    # Dynamically auto-sync web servers and database absolute paths and port bindings on disk
+    _sync_nginx_config(stack_root, nginx_port)
+    _sync_apache_config(stack_root, apache_port, active_php)
+    _sync_mysql_config(stack_root, mysql_port)
 
     if service == "all":
         keys = ["mysql", "php", "apache", "nginx"]

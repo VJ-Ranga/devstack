@@ -180,6 +180,13 @@ class AppsTab(QWidget):
         self.success_button.clicked.connect(self._open_newly_installed_site)
         self.completion_layout.addWidget(self.success_button)
         
+        self.retry_button = QPushButton("↩ Edit Settings")
+        self.retry_button.setObjectName("PrimaryButton")
+        self.retry_button.setFixedWidth(140)
+        self.retry_button.setFixedHeight(28)
+        self.retry_button.clicked.connect(lambda: self.show_wizard(self.active_installer))
+        self.completion_layout.addWidget(self.retry_button)
+        
         self.done_button = QPushButton("Return to App Store")
         self.done_button.setObjectName("DefaultButton")
         self.done_button.setFixedWidth(140)
@@ -215,10 +222,6 @@ class AppsTab(QWidget):
             inp = QLineEdit()
             inp.setText(field["default"])
             
-            # Fluid sizing limits
-            inp.setMinimumWidth(200)
-            inp.setMaximumWidth(450)
-            
             if field["type"] == "password":
                 inp.setEchoMode(QLineEdit.Password)
                 
@@ -227,8 +230,6 @@ class AppsTab(QWidget):
             
         # Add PHP version chooser dynamically
         self.php_select = QComboBox()
-        self.php_select.setMinimumWidth(200)
-        self.php_select.setMaximumWidth(450)
         
         php_versions = discover_php_versions(self.main_window.get_stack_root())
         for php in php_versions:
@@ -248,6 +249,7 @@ class AppsTab(QWidget):
         self.progress_msg.setText("Starting offline installation process...")
         self.log_console.clear()
         self.success_button.hide()
+        self.retry_button.hide()
         self.done_button.hide()
 
     def _run_installer(self):
@@ -295,6 +297,7 @@ class AppsTab(QWidget):
             self.progress_bar.setValue(100)
             self.progress_msg.setText(message)
             self.success_button.show()
+            self.retry_button.hide()
             self.done_button.show()
             
             # Record site metadata persistently
@@ -318,8 +321,12 @@ class AppsTab(QWidget):
             except Exception as e:
                 print(f"Error saving site: {e}")
         else:
+            self.progress_msg.setText("Installation failed! Check console logs below.")
+            self.log_console.appendPlainText(f"\n[ERROR] Installation failed:\n{message}")
+            self.success_button.hide()
+            self.retry_button.show()
+            self.done_button.show()
             QMessageBox.critical(self, "Installation Failed", f"An error occurred:\n{message}")
-            self.show_wizard(self.active_installer)
 
     def _open_newly_installed_site(self):
         nginx_port = int(self.main_window.settings.get("nginx_port", 80))
