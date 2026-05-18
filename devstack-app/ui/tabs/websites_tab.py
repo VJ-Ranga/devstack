@@ -448,7 +448,7 @@ class SiteRow(QFrame):
         msg_box.setInformativeText("Would you like to keep the website files on disk, or permanently destroy all files and database?")
         
         btn_keep_files = msg_box.addButton("Remove from Dashboard Only", QMessageBox.ActionRole)
-        btn_destroy_all = msg_box.addButton("Permanently Delete Files & DB", QMessageBox.DestructiveRole)
+        btn_destroy_all = msg_box.addButton("Permanently Delete Files and DB", QMessageBox.DestructiveRole)
         btn_cancel = msg_box.addButton("Cancel", QMessageBox.RejectRole)
         
         msg_box.setDefaultButton(btn_cancel)

@@ -6,10 +6,10 @@ from pathlib import Path
 from PySide6.QtCore import QThread, Signal
 
 STABLE_PHP_VERSIONS = [
-    {"version": "PHP 8.3.7 (x64 Thread Safe)", "folder": "php83", "url": "https://windows.php.net/downloads/releases/php-8.3.7-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.2.19 (x64 Thread Safe)", "folder": "php82", "url": "https://windows.php.net/downloads/releases/php-8.2.19-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.1.28 (x64 Thread Safe)", "folder": "php81", "url": "https://windows.php.net/downloads/releases/php-8.1.28-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.0.30 (x64 Thread Safe)", "folder": "php80", "url": "https://windows.php.net/downloads/releases/php-8.0.30-Win32-vs16-x64.zip"},
+    {"version": "PHP 8.3.7 (x64 Thread Safe)", "folder": "php83", "url": "https://windows.php.net/downloads/releases/archives/php-8.3.7-Win32-vs16-x64.zip"},
+    {"version": "PHP 8.2.19 (x64 Thread Safe)", "folder": "php82", "url": "https://windows.php.net/downloads/releases/archives/php-8.2.19-Win32-vs16-x64.zip"},
+    {"version": "PHP 8.1.28 (x64 Thread Safe)", "folder": "php81", "url": "https://windows.php.net/downloads/releases/archives/php-8.1.28-Win32-vs16-x64.zip"},
+    {"version": "PHP 8.0.30 (x64 Thread Safe)", "folder": "php80", "url": "https://windows.php.net/downloads/releases/archives/php-8.0.30-Win32-vs16-x64.zip"},
     {"version": "PHP 7.4.33 (x64 Thread Safe)", "folder": "php74", "url": "https://windows.php.net/downloads/releases/archives/php-7.4.33-Win32-vc15-x64.zip"},
 ]
 

@@ -53,15 +53,13 @@ class SettingsTab(QWidget):
         stack_form.setSpacing(8)
         self.stack_root_input = QLineEdit()
         self.stack_root_input.setPlaceholderText("Path to devstack-template folder")
-        self.stack_root_input.setMaximumWidth(400)
         browse_row = QHBoxLayout()
         browse_row.setSpacing(8)
-        browse_row.addWidget(self.stack_root_input)
+        browse_row.addWidget(self.stack_root_input, 1)
         self.browse_btn = QPushButton("Browse")
         self.browse_btn.setObjectName("DefaultButton")
         self.browse_btn.clicked.connect(self._browse_stack_root)
         browse_row.addWidget(self.browse_btn)
-        browse_row.addStretch(1)
         stack_form.addRow("Stack Root", browse_row)
         stack_layout.addLayout(stack_form)
         layout.addWidget(stack_panel)
@@ -74,7 +72,6 @@ class SettingsTab(QWidget):
         def port_spinbox():
             box = QSpinBox()
             box.setRange(1, 65535)
-            box.setFixedWidth(120)
             return box
 
         self.apache_port_input = port_spinbox()
@@ -95,11 +92,9 @@ class SettingsTab(QWidget):
         self.refresh_interval_input = QSpinBox()
         self.refresh_interval_input.setRange(1, 60)
         self.refresh_interval_input.setSuffix(" seconds")
-        self.refresh_interval_input.setFixedWidth(120)
         self.ui_density_input = QComboBox()
         self.ui_density_input.addItem("Comfortable", "comfortable")
         self.ui_density_input.addItem("Compact", "compact")
-        self.ui_density_input.setFixedWidth(150)
         app_form.addRow("Auto Refresh", self.refresh_interval_input)
         app_form.addRow("UI Density", self.ui_density_input)
         app_layout.addLayout(app_form)
@@ -119,36 +114,28 @@ class SettingsTab(QWidget):
         
         self.php_mem_input = QLineEdit()
         self.php_mem_input.setPlaceholderText("e.g. 256M")
-        self.php_mem_input.setFixedWidth(120)
         
         self.php_upload_input = QLineEdit()
         self.php_upload_input.setPlaceholderText("e.g. 64M")
-        self.php_upload_input.setFixedWidth(120)
         
         self.php_post_input = QLineEdit()
         self.php_post_input.setPlaceholderText("e.g. 64M")
-        self.php_post_input.setFixedWidth(120)
         
         self.php_exec_input = QSpinBox()
         self.php_exec_input.setRange(1, 7200)
         self.php_exec_input.setSuffix(" seconds")
-        self.php_exec_input.setFixedWidth(120)
         
         php_ini_form.addRow("Memory Limit", self.php_mem_input)
         php_ini_form.addRow("Max Upload Limit", self.php_upload_input)
         php_ini_form.addRow("Max Post Size", self.php_post_input)
         php_ini_form.addRow("Execution Timeout", self.php_exec_input)
         
-        self.save_php_ini_btn = QPushButton("Save & Apply PHP Limits")
+        self.save_php_ini_btn = QPushButton("Save and Apply PHP Limits")
         self.save_php_ini_btn.setObjectName("PrimaryButton")
         self.save_php_ini_btn.clicked.connect(self._save_php_ini_config)
         
         php_layout.addLayout(php_ini_form)
-        
-        save_btn_row = QHBoxLayout()
-        save_btn_row.addWidget(self.save_php_ini_btn)
-        save_btn_row.addStretch(1)
-        php_layout.addLayout(save_btn_row)
+        php_layout.addWidget(self.save_php_ini_btn)
         
         php_layout.addSpacing(6)
         
@@ -156,16 +143,14 @@ class SettingsTab(QWidget):
         switch_form = QFormLayout()
         switch_form.setSpacing(8)
         self.active_php_combo = QComboBox()
-        self.active_php_combo.setFixedWidth(200)
         self.switch_php_btn = QPushButton("Apply Active Version")
         self.switch_php_btn.setObjectName("DefaultButton")
         self.switch_php_btn.clicked.connect(self._switch_php_version)
         
         switch_row = QHBoxLayout()
         switch_row.setSpacing(8)
-        switch_row.addWidget(self.active_php_combo)
+        switch_row.addWidget(self.active_php_combo, 1)
         switch_row.addWidget(self.switch_php_btn)
-        switch_row.addStretch(1)
         switch_form.addRow("Active Version", switch_row)
         php_layout.addLayout(switch_form)
         
@@ -177,20 +162,18 @@ class SettingsTab(QWidget):
         dl_form = QFormLayout()
         dl_form.setSpacing(8)
         self.stable_php_combo = QComboBox()
-        self.stable_php_combo.setFixedWidth(200)
         from core.php_manager import STABLE_PHP_VERSIONS
         for ver in STABLE_PHP_VERSIONS:
             self.stable_php_combo.addItem(ver["version"], ver)
             
-        self.dl_btn = QPushButton("Download & Install")
+        self.dl_btn = QPushButton("Download and Install")
         self.dl_btn.setObjectName("PrimaryButton")
         self.dl_btn.clicked.connect(self._download_php_version)
         
         dl_row = QHBoxLayout()
         dl_row.setSpacing(8)
-        dl_row.addWidget(self.stable_php_combo)
+        dl_row.addWidget(self.stable_php_combo, 1)
         dl_row.addWidget(self.dl_btn)
-        dl_row.addStretch(1)
         dl_form.addRow("Select Release", dl_row)
         php_layout.addLayout(dl_form)
         
