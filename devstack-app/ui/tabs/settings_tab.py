@@ -1,8 +1,17 @@
+import json
+import subprocess
+import sys
 from pathlib import Path
-from PySide6.QtCore import QThread, Signal
-from PySide6.QtWidgets import QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout, QWidget, QComboBox, QProgressBar, QPlainTextEdit, QDialog, QCheckBox, QGridLayout
 
-from core.config import DEFAULT_SETTINGS, load_settings, save_settings
+from PySide6.QtCore import QThread, Signal
+from PySide6.QtWidgets import (
+    QApplication, QFileDialog, QFormLayout, QFrame, QHBoxLayout, QLabel,
+    QLineEdit, QMessageBox, QPushButton, QScrollArea, QSpinBox, QVBoxLayout,
+    QWidget, QComboBox, QProgressBar, QPlainTextEdit, QDialog, QCheckBox,
+    QGridLayout,
+)
+
+from core.config import APP_DIR, DEFAULT_SETTINGS, load_settings, save_settings
 from ui.styles import density_button_height, repolish
 
 
@@ -17,6 +26,25 @@ class PHPVersionSwitchWorker(QThread):
         from core.service_manager import restart
         res = restart(self.stack_root)
         self.finished.emit(res)
+
+
+class MCPInstallWorker(QThread):
+    """Runs pip install for MCP requirements in the background."""
+    finished = Signal(bool, str)
+
+    def run(self):
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "mcp>=1.0.0", "pydantic>=2.0"],
+                capture_output=True, text=True, timeout=180,
+            )
+            success = result.returncode == 0
+            output = (result.stdout + result.stderr).strip()
+            self.finished.emit(success, output or "(no output)")
+        except subprocess.TimeoutExpired:
+            self.finished.emit(False, "Installation timed out after 3 minutes.")
+        except Exception as exc:
+            self.finished.emit(False, str(exc))
 
 
 class GuardedSpinBox(QSpinBox):
@@ -57,6 +85,7 @@ class SettingsTab(QWidget):
         self._ext_apply_worker = None
         self._ext_apply_context = ""
         self._switch_worker = None
+        self._mcp_worker = None
         self._setup_ui()
         self._load_settings()
         self._refresh_php_audit()
@@ -122,9 +151,11 @@ class SettingsTab(QWidget):
             return box
 
         self.nginx_port_input = port_spinbox()
+        self.apache_port_input = port_spinbox()
         self.php_port_input = port_spinbox()
         self.mysql_port_input = port_spinbox()
         ports_form.addRow("Nginx Port", self.nginx_port_input)
+        ports_form.addRow("Apache Port", self.apache_port_input)
         ports_form.addRow("PHP Port", self.php_port_input)
         ports_form.addRow("MySQL Port", self.mysql_port_input)
 
@@ -318,6 +349,131 @@ class SettingsTab(QWidget):
         php_layout.addWidget(self.dl_progress_frame)
         
         layout.addWidget(php_panel)
+
+        # ── MCP AI Integration panel ──────────────────────────────────────────
+        mcp_label, mcp_panel, mcp_layout = self._make_panel("AI INTEGRATION (MCP)")
+        layout.addWidget(mcp_label)
+
+        mcp_desc = QLabel(
+            "Connect AI coding agents (Claude Code, Cursor, VS Code) directly to your "
+            "DevStack. Agents can start/stop services, read logs, run WP-CLI commands, "
+            "and query your databases — all from chat."
+        )
+        mcp_desc.setObjectName("BodyText")
+        mcp_desc.setWordWrap(True)
+        mcp_layout.addWidget(mcp_desc)
+
+        # Status row
+        status_row = QHBoxLayout()
+        status_row.setSpacing(10)
+        self.mcp_status_lbl = QLabel("● Checking…")
+        self.mcp_status_lbl.setObjectName("MetaText")
+        self.mcp_status_lbl.setStyleSheet("font-weight: bold; font-size: 11px;")
+        self.mcp_check_btn = QPushButton("Re-check")
+        self.mcp_check_btn.setObjectName("DefaultButton")
+        self.mcp_check_btn.clicked.connect(self._check_mcp_installed)
+        status_row.addWidget(self.mcp_status_lbl)
+        status_row.addStretch()
+        status_row.addWidget(self.mcp_check_btn)
+        mcp_layout.addLayout(status_row)
+
+        # Server path row
+        path_form = QFormLayout()
+        path_form.setSpacing(8)
+        self.mcp_server_path_lbl = QLabel()
+        self.mcp_server_path_lbl.setObjectName("MetaText")
+        self.mcp_server_path_lbl.setWordWrap(True)
+        mcp_server_path = APP_DIR.parent / "devstack-mcp" / "server.py"
+        self.mcp_server_path_lbl.setText(str(mcp_server_path))
+        path_form.addRow("Server Script", self.mcp_server_path_lbl)
+        mcp_layout.addLayout(path_form)
+
+        # Install requirements block
+        mcp_install_lbl = QLabel("Install / Update MCP Package:")
+        mcp_install_lbl.setStyleSheet("font-weight: bold; font-size: 11px; margin-top: 4px;")
+        mcp_layout.addWidget(mcp_install_lbl)
+
+        install_hint = QLabel("Requires Python + pip. Installs: mcp>=1.0.0 and pydantic>=2.0")
+        install_hint.setObjectName("MetaText")
+        mcp_layout.addWidget(install_hint)
+
+        self.mcp_install_btn = QPushButton("Install MCP Requirements")
+        self.mcp_install_btn.setObjectName("PrimaryButton")
+        self.mcp_install_btn.clicked.connect(self._install_mcp_reqs)
+        mcp_layout.addWidget(self.mcp_install_btn)
+
+        self.mcp_install_result_lbl = QLabel("")
+        self.mcp_install_result_lbl.setObjectName("MetaText")
+        self.mcp_install_result_lbl.setWordWrap(True)
+        self.mcp_install_result_lbl.hide()
+        mcp_layout.addWidget(self.mcp_install_result_lbl)
+
+        # Config copy block
+        config_lbl = QLabel("Copy MCP Config Snippet:")
+        config_lbl.setStyleSheet("font-weight: bold; font-size: 11px; margin-top: 4px;")
+        mcp_layout.addWidget(config_lbl)
+
+        config_hint = QLabel(
+            "Copy the JSON snippet for your AI tool, then paste it into its MCP config file."
+        )
+        config_hint.setObjectName("MetaText")
+        config_hint.setWordWrap(True)
+        mcp_layout.addWidget(config_hint)
+
+        copy_row = QHBoxLayout()
+        copy_row.setSpacing(8)
+
+        self.mcp_copy_claude_btn = QPushButton("Claude Code")
+        self.mcp_copy_claude_btn.setObjectName("DefaultButton")
+        self.mcp_copy_claude_btn.setToolTip(
+            "Copies config for Claude Code.\n"
+            "Paste into: ~/.claude.json  (key: mcpServers)\n"
+            "or project: .claude/settings.json"
+        )
+        self.mcp_copy_claude_btn.clicked.connect(self._copy_mcp_config_claude)
+        copy_row.addWidget(self.mcp_copy_claude_btn)
+
+        self.mcp_copy_cursor_btn = QPushButton("Cursor / Windsurf")
+        self.mcp_copy_cursor_btn.setObjectName("DefaultButton")
+        self.mcp_copy_cursor_btn.setToolTip(
+            "Copies config for Cursor Agent / Windsurf.\n"
+            "Paste into: ~/.cursor/mcp.json"
+        )
+        self.mcp_copy_cursor_btn.clicked.connect(self._copy_mcp_config_cursor)
+        copy_row.addWidget(self.mcp_copy_cursor_btn)
+
+        self.mcp_copy_generic_btn = QPushButton("Generic / VS Code")
+        self.mcp_copy_generic_btn.setObjectName("DefaultButton")
+        self.mcp_copy_generic_btn.setToolTip(
+            "Copies a standard mcpServers JSON block.\n"
+            "Compatible with VS Code (Copilot Chat), OpenCode, and any MCP stdio client."
+        )
+        self.mcp_copy_generic_btn.clicked.connect(self._copy_mcp_config_generic)
+        copy_row.addWidget(self.mcp_copy_generic_btn)
+
+        mcp_layout.addLayout(copy_row)
+
+        # Open config file shortcuts
+        open_row = QHBoxLayout()
+        open_row.setSpacing(8)
+
+        self.mcp_open_claude_btn = QPushButton("Open Claude Code Config Folder")
+        self.mcp_open_claude_btn.setObjectName("DefaultButton")
+        self.mcp_open_claude_btn.setToolTip("Opens ~/.claude/ in File Explorer")
+        self.mcp_open_claude_btn.clicked.connect(self._open_claude_config_dir)
+        open_row.addWidget(self.mcp_open_claude_btn)
+
+        self.mcp_open_cursor_btn = QPushButton("Open Cursor Config Folder")
+        self.mcp_open_cursor_btn.setObjectName("DefaultButton")
+        self.mcp_open_cursor_btn.setToolTip("Opens ~/.cursor/ in File Explorer")
+        self.mcp_open_cursor_btn.clicked.connect(self._open_cursor_config_dir)
+        open_row.addWidget(self.mcp_open_cursor_btn)
+
+        mcp_layout.addLayout(open_row)
+        layout.addWidget(mcp_panel)
+
+        # Run status check now that widgets exist
+        self._check_mcp_installed()
 
         button_row = QHBoxLayout()
         button_row.addStretch()
@@ -745,6 +901,108 @@ class SettingsTab(QWidget):
             self.dl_prog_msg.setText("Installation failed! Check error details below.")
             QMessageBox.critical(self, "Installation Failed", message)
 
+    # ── MCP helpers ───────────────────────────────────────────────────────────
+
+    def _mcp_server_path(self) -> Path:
+        return APP_DIR.parent / "devstack-mcp" / "server.py"
+
+    def _check_mcp_installed(self):
+        import importlib.util
+        ok = importlib.util.find_spec("mcp") is not None
+        if ok:
+            self.mcp_status_lbl.setText("● MCP package installed  ✓")
+            self.mcp_status_lbl.setStyleSheet("color: #27ae60; font-weight: bold; font-size: 11px;")
+        else:
+            self.mcp_status_lbl.setText("● MCP package NOT installed — click Install below")
+            self.mcp_status_lbl.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 11px;")
+        return ok
+
+    def _mcp_config_dict(self) -> dict:
+        server_path = str(self._mcp_server_path())
+        return {
+            "mcpServers": {
+                "devstack": {
+                    "command": "python",
+                    "args": [server_path],
+                    "type": "stdio",
+                }
+            }
+        }
+
+    def _copy_mcp_config_claude(self):
+        cfg = self._mcp_config_dict()
+        # Claude Code expects the full object merged into ~/.claude.json
+        snippet = json.dumps(cfg, indent=2)
+        QApplication.clipboard().setText(snippet)
+        QMessageBox.information(
+            self, "Copied — Claude Code",
+            "MCP config copied to clipboard.\n\n"
+            "Paste (merge) the mcpServers block into:\n"
+            "  • ~/.claude.json  (global)\n"
+            "  • .claude/settings.json  (project-level)\n\n"
+            "Then restart Claude Code."
+        )
+
+    def _copy_mcp_config_cursor(self):
+        cfg = self._mcp_config_dict()
+        snippet = json.dumps(cfg, indent=2)
+        QApplication.clipboard().setText(snippet)
+        QMessageBox.information(
+            self, "Copied — Cursor / Windsurf",
+            "MCP config copied to clipboard.\n\n"
+            "Paste (merge) the mcpServers block into:\n"
+            "  • ~/.cursor/mcp.json\n\n"
+            "Then reload Cursor."
+        )
+
+    def _copy_mcp_config_generic(self):
+        cfg = self._mcp_config_dict()
+        snippet = json.dumps(cfg, indent=2)
+        QApplication.clipboard().setText(snippet)
+        QMessageBox.information(
+            self, "Copied — Generic MCP Config",
+            "MCP config copied to clipboard.\n\n"
+            "Paste the mcpServers block into your AI tool's MCP configuration file.\n\n"
+            "VS Code (Copilot Chat): .vscode/mcp.json\n"
+            "OpenCode: ~/.opencode/config.json"
+        )
+
+    def _install_mcp_reqs(self):
+        if self._mcp_worker and self._mcp_worker.isRunning():
+            return
+        self.mcp_install_btn.setEnabled(False)
+        self.mcp_install_btn.setText("Installing…")
+        self.mcp_install_result_lbl.setText("Installing mcp and pydantic via pip…")
+        self.mcp_install_result_lbl.setStyleSheet("")
+        self.mcp_install_result_lbl.show()
+        self._mcp_worker = MCPInstallWorker()
+        self._mcp_worker.finished.connect(self._on_mcp_install_done)
+        self._mcp_worker.start()
+
+    def _on_mcp_install_done(self, success: bool, output: str):
+        self.mcp_install_btn.setEnabled(True)
+        self.mcp_install_btn.setText("Install MCP Requirements")
+        if success:
+            self.mcp_install_result_lbl.setText("✓ Installed successfully.")
+            self.mcp_install_result_lbl.setStyleSheet("color: #27ae60; font-size: 11px;")
+        else:
+            self.mcp_install_result_lbl.setText(f"✗ Installation failed: {output[:200]}")
+            self.mcp_install_result_lbl.setStyleSheet("color: #e74c3c; font-size: 11px;")
+        self.mcp_install_result_lbl.show()
+        self._check_mcp_installed()
+
+    def _open_claude_config_dir(self):
+        target = Path.home() / ".claude"
+        target.mkdir(parents=True, exist_ok=True)
+        import os
+        os.startfile(str(target))
+
+    def _open_cursor_config_dir(self):
+        target = Path.home() / ".cursor"
+        target.mkdir(parents=True, exist_ok=True)
+        import os
+        os.startfile(str(target))
+
     def _browse_stack_root(self):
         path = QFileDialog.getExistingDirectory(self, "Select DevStack Root Folder", self.stack_root_input.text())
         if path:
@@ -754,6 +1012,7 @@ class SettingsTab(QWidget):
         settings = load_settings()
         self.stack_root_input.setText(settings.get("stack_root", ""))
         self.nginx_port_input.setValue(settings.get("nginx_port", 80))
+        self.apache_port_input.setValue(settings.get("apache_port", 8088))
         self.php_port_input.setValue(settings.get("php_port", 9000))
         self.mysql_port_input.setValue(settings.get("mysql_port", 3306))
         self.nginx_body_size_input.setText(settings.get("nginx_client_max_body_size", "128M"))
@@ -766,6 +1025,7 @@ class SettingsTab(QWidget):
         old = load_settings()
         ports_changed = any([
             self.nginx_port_input.value()   != old.get("nginx_port", 80),
+            self.apache_port_input.value()  != old.get("apache_port", 8088),
             self.php_port_input.value()     != old.get("php_port", 9000),
             self.mysql_port_input.value()   != old.get("mysql_port", 3306),
         ])
@@ -784,6 +1044,7 @@ class SettingsTab(QWidget):
         old.update({
             "stack_root": str(Path(stack).resolve()) if stack else stack,
             "nginx_port": self.nginx_port_input.value(),
+            "apache_port": self.apache_port_input.value(),
             "php_port": self.php_port_input.value(),
             "mysql_port": self.mysql_port_input.value(),
             "nginx_client_max_body_size": self.nginx_body_size_input.text().strip() or "128M",
@@ -814,6 +1075,14 @@ class SettingsTab(QWidget):
             getattr(self, "dl_btn", None),
             getattr(self, "dl_dismiss_btn", None),
             getattr(self, "php_ext_manage_btn", None),
+            # MCP section
+            getattr(self, "mcp_check_btn", None),
+            getattr(self, "mcp_install_btn", None),
+            getattr(self, "mcp_copy_claude_btn", None),
+            getattr(self, "mcp_copy_cursor_btn", None),
+            getattr(self, "mcp_copy_generic_btn", None),
+            getattr(self, "mcp_open_claude_btn", None),
+            getattr(self, "mcp_open_cursor_btn", None),
         )
         for btn in buttons:
             if btn:

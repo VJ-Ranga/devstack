@@ -66,6 +66,7 @@ def find_stack_root() -> str:
 DEFAULT_SETTINGS = {
     "stack_root": find_stack_root(),
     "nginx_port": 80,
+    "apache_port": 8088,
     "php_port": 9000,
     "mysql_port": 3306,
     "nginx_client_max_body_size": "128M",

@@ -320,6 +320,7 @@ class MainWindow(QMainWindow):
             getattr(self.settings_tab,  "_switch_worker",    None),
             getattr(self.settings_tab,  "_ext_apply_worker", None),
             getattr(self.settings_tab,  "dl_worker",         None),
+            getattr(self.settings_tab,  "_mcp_worker",       None),
         ]
         for worker in workers:
             if worker and worker.isRunning():
