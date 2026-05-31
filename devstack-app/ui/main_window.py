@@ -44,6 +44,7 @@ class MainWindow(QMainWindow):
         self.settings = load_settings()
         self._refresh_worker = None
         self._pending_refresh = False
+        self._closing = False
         self.setWindowTitle("DevStack Manager")
         self.resize(1000, 720)
         
@@ -52,13 +53,12 @@ class MainWindow(QMainWindow):
         from PySide6.QtGui import QIcon
         ui_dir = os.path.dirname(os.path.abspath(__file__))
         app_dir = os.path.dirname(ui_dir)
-        icon_path = os.path.join(app_dir, "assets", "icon.png")
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
-        else:
-            icon_path_alt = os.path.join(app_dir, "assets", "icon.ico")
-            if os.path.exists(icon_path_alt):
-                self.setWindowIcon(QIcon(icon_path_alt))
+        icon_path_ico = os.path.join(app_dir, "assets", "icon.ico")
+        icon_path_png = os.path.join(app_dir, "assets", "icon.png")
+        if os.path.exists(icon_path_ico):
+            self.setWindowIcon(QIcon(icon_path_ico))
+        elif os.path.exists(icon_path_png):
+            self.setWindowIcon(QIcon(icon_path_png))
         
         # Load and apply custom screen size boundaries dynamically
         min_w = self.settings.get("min_width", 800)
@@ -83,19 +83,15 @@ class MainWindow(QMainWindow):
 
         self.sidebar = QFrame()
         self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(220)
+        self.sidebar.setFixedWidth(200)
         
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 20, 0, 20)
         sidebar_layout.setSpacing(4)
         
         brand_row = QHBoxLayout()
-        brand_row.setContentsMargins(20, 10, 20, 15)
+        brand_row.setContentsMargins(16, 10, 16, 15)
         brand_row.setSpacing(10)
-        
-        brand_icon = QLabel("⚡")
-        brand_icon.setObjectName("BrandIcon")
-        brand_row.addWidget(brand_icon)
         
         brand_title = QLabel("DevStack")
         brand_title.setObjectName("BrandTitle")
@@ -117,11 +113,11 @@ class MainWindow(QMainWindow):
         
         self.nav_buttons = []
         nav_data = [
-            ("Control", "🏠", 0),
-            ("Websites", "🌐", 1),
-            ("Services", "⚙️", 2),
-            ("Logs", "📋", 3),
-            ("Settings", "🔧", 4),
+            ("Control",  "", 0),
+            ("Websites", "", 1),
+            ("Services", "", 2),
+            ("Logs",     "", 3),
+            ("Settings", "", 4),
         ]
         
         for title, glyph, idx in nav_data:
@@ -212,18 +208,23 @@ class MainWindow(QMainWindow):
         )
 
     def _refresh_all(self):
+        if self._closing:
+            return
         if self._refresh_worker and self._refresh_worker.isRunning():
             self._pending_refresh = True
             return
+        # Safe to drop old worker here — isRunning() returned False so C++ is fully done
+        self._refresh_worker = None
         self._pending_refresh = False
         worker = RefreshWorker(self.get_stack_root())
         worker.finished.connect(self._on_refresh_done)
-        worker.finished.connect(worker.deleteLater)
         self._refresh_worker = worker
         worker.start()
 
     def _on_refresh_done(self, status: dict, versions: dict):
-        self._refresh_worker = None
+        # Do NOT null _refresh_worker here — C++ d->running may still be True
+        # when the finished signal fires; GC here causes the "Destroyed while running" crash.
+        # The reference is safely cleared at the top of _refresh_all() instead.
         self.overview_tab.apply_refresh(status, versions)
         self.services_tab.apply_status(status)
         
@@ -240,6 +241,8 @@ class MainWindow(QMainWindow):
 
     def notify_service_state_changed(self):
         self._refresh_all()
+        # Delayed second refresh so UI catches service state after process settles.
+        # _refresh_all guards against _closing so the timer is safe across shutdown.
         QTimer.singleShot(1200, self._refresh_all)
 
     def _on_nav_clicked(self, index):
@@ -257,18 +260,17 @@ class MainWindow(QMainWindow):
             self._refresh_all()
         elif index == self.pages.indexOf(self.websites_tab):
             self.websites_tab.refresh_sites()
+        elif index == self.pages.indexOf(self.logs_tab):
+            self.logs_tab.load_current()
 
     def get_stack_root(self) -> str:
         return self.stack_root
 
     def get_open_urls(self) -> dict:
         nginx_port = int(self.settings.get("nginx_port", 80))
-        apache_port = int(self.settings.get("apache_port", 8088))
         frontend = f"http://localhost:{nginx_port}" if nginx_port != 80 else "http://localhost"
-        apache = f"http://localhost:{apache_port}"
         return {
             "nginx": frontend + "/",
-            "apache": apache + "/",
             "phpmyadmin": frontend + "/phpmyadmin/",
             "dashboard": frontend + "/dashboard/",
         }
@@ -308,13 +310,18 @@ class MainWindow(QMainWindow):
         self.theme_btn.setText("🌙 Dark Mode" if new_theme == "light" else "☀️ Light Mode")
 
     def closeEvent(self, event):
+        self._closing = True
         self.status_timer.stop()
+        # Collect every known worker across all tabs
         workers = [
             self._refresh_worker,
-            getattr(self.overview_tab, "_service_worker", None),
-            getattr(self.services_tab, "_action_worker", None),
+            getattr(self.overview_tab,  "_service_worker",   None),
+            getattr(self.services_tab,  "_action_worker",    None),
+            getattr(self.settings_tab,  "_switch_worker",    None),
+            getattr(self.settings_tab,  "_ext_apply_worker", None),
+            getattr(self.settings_tab,  "dl_worker",         None),
         ]
         for worker in workers:
             if worker and worker.isRunning():
-                worker.wait(10000)
+                worker.wait(5000)
         event.accept()

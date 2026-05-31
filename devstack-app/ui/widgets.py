@@ -9,17 +9,14 @@ class ClickableFrame(QFrame):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._hover = False
         self.setCursor(Qt.PointingHandCursor)
 
     def enterEvent(self, event):
-        self._hover = True
         self.setProperty("hover", "true")
         repolish(self)
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        self._hover = False
         self.setProperty("hover", "false")
         repolish(self)
         super().leaveEvent(event)

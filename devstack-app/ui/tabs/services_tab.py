@@ -1,8 +1,17 @@
-from PySide6.QtCore import QThread, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtCore import QThread, Qt, Signal, QTimer
+from PySide6.QtWidgets import (
+    QFrame, QHBoxLayout, QLabel, QPushButton,
+    QScrollArea, QSizePolicy, QVBoxLayout, QWidget,
+)
 
 from core.service_manager import restart, start, stop
 from ui.styles import FLUENT_GLYPHS, density_button_height, repolish, set_status_badge, set_status_frame
+
+_SERVICE_GLYPHS = {
+    "nginx":  FLUENT_GLYPHS["nginx"],
+    "php":    FLUENT_GLYPHS["php"],
+    "mysql":  FLUENT_GLYPHS["phpmyadmin"],
+}
 
 
 class ServiceActionWorker(QThread):
@@ -30,6 +39,15 @@ class ServicesTab(QWidget):
         self.main_window = main_window
         self._action_worker = None
         self._service_widgets = {}
+
+        # Busy-animation state for the active service's badge
+        self._busy_timer = QTimer(self)
+        self._busy_timer.setInterval(350)
+        self._busy_timer.timeout.connect(self._tick_busy)
+        self._busy_phase = 0
+        self._busy_badge = None
+        self._busy_verb = ""
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -44,114 +62,111 @@ class ServicesTab(QWidget):
         content = QWidget()
         content.setObjectName("TabPage")
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(14)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(10)
 
         title = QLabel("Services")
         title.setObjectName("PageTitle")
         layout.addWidget(title)
 
-        subtitle = QLabel("Use this page when you want direct control of each service.")
+        subtitle = QLabel("Start, stop, and restart individual services in your stack.")
         subtitle.setObjectName("BodyText")
         subtitle.setWordWrap(True)
         layout.addWidget(subtitle)
 
-        services_label = QLabel("SERVICE LIST")
-        services_label.setObjectName("SectionLabel")
-        layout.addWidget(services_label)
+        layout.addSpacing(6)
+
+        section_lbl = QLabel("SERVICE LIST")
+        section_lbl.setObjectName("SectionLabel")
+        layout.addWidget(section_lbl)
 
         rows_layout = QVBoxLayout()
-        rows_layout.setSpacing(8)
-        glyph_map = {"apache": FLUENT_GLYPHS["apache"], "nginx": FLUENT_GLYPHS["nginx"], "php": FLUENT_GLYPHS["partial"], "mysql": FLUENT_GLYPHS["phpmyadmin"]}
-        for key, name, exe, port, desc, open_target in (
-            ("apache", "Apache HTTP Server", "apache\\bin\\httpd.exe", 8088, "Backend web server", "apache"),
-            ("nginx", "Nginx Web Server", "nginx\\nginx.exe", 80, "Main web entry point", "nginx"),
-            ("php", "PHP FastCGI", "php\\php-cgi.exe", 9000, "PHP runtime", None),
-            ("mysql", "MariaDB Database", "mysql\\bin\\mysqld.exe", 3306, "Database server", "phpmyadmin"),
+        rows_layout.setSpacing(6)
+
+        for key, name, port, desc, open_target in (
+            ("nginx",  "Nginx Web Server", 80,   "Main web entry point",  "nginx"),
+            ("php",    "PHP FastCGI",      9000, "PHP runtime (FastCGI)", None),
+            ("mysql",  "MariaDB Database", 3306, "Database server",       "phpmyadmin"),
         ):
             row = QFrame()
             row.setObjectName("ServiceRow")
             set_status_frame(row, "stopped")
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(12, 8, 12, 8)
-            row_layout.setSpacing(10)
+            row.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+            # Single horizontal row
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(14, 10, 14, 10)
+            row_layout.setSpacing(12)
+
+            # Status icon box
             icon_box = QFrame()
             icon_box.setObjectName("StatusIconBox")
             set_status_frame(icon_box, "stopped")
-            icon_box.setFixedSize(26, 26)
-            
-            icon_layout = QVBoxLayout(icon_box)
-            icon_layout.setContentsMargins(0, 0, 0, 0)
-            icon_layout.setAlignment(Qt.AlignCenter)
-            icon = QLabel(glyph_map[key])
-            icon.setObjectName("StatusIconGlyph")
-            set_status_badge(icon, "stopped")
-            icon_layout.addWidget(icon)
-            row_layout.addWidget(icon_box)
+            icon_box.setFixedSize(32, 32)
+            ib = QVBoxLayout(icon_box)
+            ib.setContentsMargins(0, 0, 0, 0)
+            ib.setAlignment(Qt.AlignCenter)
+            icon_lbl = QLabel(_SERVICE_GLYPHS[key])
+            icon_lbl.setObjectName("StatusIconGlyph")
+            set_status_badge(icon_lbl, "stopped")
+            icon_lbl.setAlignment(Qt.AlignCenter)
+            ib.addWidget(icon_lbl)
+            row_layout.addWidget(icon_box, 0, Qt.AlignVCenter)
 
-            # Responsive Vertical Info Block
-            info_layout = QVBoxLayout()
-            info_layout.setSpacing(3)
+            # Name + meta (takes all spare space)
+            info_col = QVBoxLayout()
+            info_col.setSpacing(2)
+            name_lbl = QLabel(name)
+            name_lbl.setObjectName("RowTitle")
+            meta_lbl = QLabel(f"Port {port}  •  {desc}")
+            meta_lbl.setObjectName("RowMeta")
+            info_col.addWidget(name_lbl)
+            info_col.addWidget(meta_lbl)
+            row_layout.addLayout(info_col, 1)
 
-            # Top Line: Title + Status Badge next to it
-            top_line = QHBoxLayout()
-            top_line.setSpacing(8)
-            row_title = QLabel(name)
-            row_title.setObjectName("RowTitle")
-            top_line.addWidget(row_title)
-
+            # Status badge
             badge = QLabel("Stopped")
             badge.setObjectName("StatusBadge")
             set_status_badge(badge, "stopped")
-            top_line.addWidget(badge)
-            top_line.addStretch(1) # Push badge close to title
-            info_layout.addLayout(top_line)
+            row_layout.addWidget(badge, 0, Qt.AlignVCenter)
 
-            # Bottom Line: Port & Description in one unified label
-            desc_meta = QLabel(f"Port {port}  •  {desc}")
-            desc_meta.setObjectName("BodyText")
-            info_layout.addWidget(desc_meta)
-            
-            row_layout.addLayout(info_layout, 1)
-
-            # Modern Actions Layout
-            actions = QHBoxLayout()
-            actions.setSpacing(6)
+            # Action buttons — no fixed width so text never clips
+            row_layout.addSpacing(4)
 
             action_btn = QPushButton("Start")
             action_btn.setObjectName("PrimaryButton")
             action_btn.clicked.connect(lambda checked=False, k=key: self._on_action_btn_clicked(k))
-            actions.addWidget(action_btn)
+            row_layout.addWidget(action_btn, 0, Qt.AlignVCenter)
 
             restart_btn = QPushButton("Restart")
             restart_btn.setObjectName("DefaultButton")
             restart_btn.clicked.connect(lambda checked=False, k=key: self._run_action(k, "restart"))
-            actions.addWidget(restart_btn)
+            row_layout.addWidget(restart_btn, 0, Qt.AlignVCenter)
 
             open_btn = None
             if open_target:
                 open_btn = QPushButton("Open")
                 open_btn.setObjectName("DefaultButton")
                 open_btn.clicked.connect(lambda checked=False, t=open_target: self.main_window.open_target(t))
-                actions.addWidget(open_btn)
+                row_layout.addWidget(open_btn, 0, Qt.AlignVCenter)
 
-            row_layout.addLayout(actions)
             rows_layout.addWidget(row)
             self._service_widgets[key] = {
-                "row": row,
-                "icon_box": icon_box,
-                "icon": icon,
-                "badge": badge,
+                "row":        row,
+                "icon_box":   icon_box,
+                "icon":       icon_lbl,
+                "badge":      badge,
                 "action_btn": action_btn,
                 "restart_btn": restart_btn,
-                "open_btn": open_btn
+                "open_btn":   open_btn,
             }
 
         layout.addLayout(rows_layout)
         layout.addStretch()
         scroll.setWidget(content)
         root_layout.addWidget(scroll)
+
+    # ── button-state helpers ────────────────────────────────────────────
 
     def _on_action_btn_clicked(self, service):
         state = self._service_widgets[service]["badge"].text().lower()
@@ -170,16 +185,35 @@ class ServicesTab(QWidget):
                 data["open_btn"].setEnabled(False)
         current = self._service_widgets.get(service)
         if current:
-            current["badge"].setText("Starting" if action == "start" else "Stopping" if action == "stop" else "Restarting")
+            verb = "Starting" if action == "start" else "Stopping" if action == "stop" else "Restarting"
             set_status_badge(current["badge"], "partial")
+            self._start_busy(current["badge"], verb)
+        # Drop previous finished worker before creating a new one (safe: isRunning() == False)
+        self._action_worker = None
         worker = ServiceActionWorker(self.main_window.get_stack_root(), action, service)
         worker.finished.connect(self._on_action_done)
-        worker.finished.connect(worker.deleteLater)
         self._action_worker = worker
         worker.start()
 
+    def _start_busy(self, badge, verb: str):
+        self._busy_badge = badge
+        self._busy_verb = verb
+        self._busy_phase = 0
+        self._busy_timer.start()
+        self._tick_busy()
+
+    def _tick_busy(self):
+        if self._busy_badge:
+            self._busy_badge.setText(self._busy_verb + "." * (self._busy_phase % 4))
+        self._busy_phase += 1
+
+    def _stop_busy(self):
+        self._busy_timer.stop()
+        self._busy_badge = None
+
     def _on_action_done(self, service, result):
-        self._action_worker = None
+        # Do NOT null _action_worker here — C++ d->running may still be True at signal time
+        self._stop_busy()
         for data in self._service_widgets.values():
             data["action_btn"].setEnabled(True)
             data["restart_btn"].setEnabled(True)
@@ -190,8 +224,14 @@ class ServicesTab(QWidget):
             QMessageBox.warning(self, "Service Action Failed", result.get("error", "Unknown error"))
         self.main_window.notify_service_state_changed()
 
+    # ── status update from main refresh ───────────────────────────────
+
     def apply_status(self, status: dict):
-        glyph_state_map = {"running": FLUENT_GLYPHS["running"], "partial": FLUENT_GLYPHS["partial"], "stopped": FLUENT_GLYPHS["stopped"]}
+        glyph_state = {
+            "running": FLUENT_GLYPHS["running"],
+            "partial": FLUENT_GLYPHS["partial"],
+            "stopped": FLUENT_GLYPHS["stopped"],
+        }
         for svc in status.get("services", []):
             key = svc.get("key")
             if key not in self._service_widgets:
@@ -200,15 +240,19 @@ class ServicesTab(QWidget):
             label = "Needs Attention" if state == "partial" else state.title()
             data = self._service_widgets[key]
             data["badge"].setText(label)
-            data["icon"].setText(glyph_state_map[state])
-            set_status_frame(data["row"], state)
+            data["badge"].setToolTip(
+                "Process is running but the port is not yet listening.\n"
+                "This may resolve in a few seconds, or indicate a config error.\n"
+                "Check the Logs tab for details."
+                if state == "partial" else ""
+            )
+            data["icon"].setText(glyph_state[state])
+            set_status_frame(data["row"],      state)
             set_status_frame(data["icon_box"], state)
-            set_status_badge(data["badge"], state)
-            set_status_badge(data["icon"], state)
+            set_status_badge(data["badge"],    state)
+            set_status_badge(data["icon"],     state)
 
-            # Dynamic toggle action state and styling based on live status
             is_running = (state == "running")
-            is_stopped = (state == "stopped")
             is_partial = (state == "partial")
 
             action_btn = data.get("action_btn")
@@ -230,8 +274,8 @@ class ServicesTab(QWidget):
     def apply_density(self, density: str):
         h = density_button_height(density)
         for data in self._service_widgets.values():
-            for key in ("action_btn", "restart_btn", "open_btn"):
-                btn = data.get(key)
+            for k in ("action_btn", "restart_btn", "open_btn"):
+                btn = data.get(k)
                 if btn:
                     btn.setFixedHeight(h)
                     repolish(btn)

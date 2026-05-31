@@ -35,16 +35,6 @@ def get_php_version(bin_dir: str) -> str:
     return ""
 
 
-def get_apache_version(bin_dir: str) -> str:
-    httpd = Path(bin_dir) / "httpd.exe"
-    if httpd.exists():
-        out = _run_version_cmd(str(httpd), ["-v"])
-        for line in out.split("\n"):
-            if "Server version" in line:
-                return line.split(":")[-1].strip()
-    return ""
-
-
 def get_nginx_version(bin_dir: str) -> str:
     nginx = Path(bin_dir) / "nginx.exe"
     if nginx.exists():
@@ -61,7 +51,7 @@ def get_mysql_version(bin_dir: str) -> str:
         if out:
             parts = out.strip().split()
             for p in parts:
-                if p[0].isdigit():
+                if p and p[0].isdigit():
                     return p.strip(",")
     return ""
 
@@ -81,7 +71,6 @@ def get_all_versions(stack_root: str) -> dict:
 
     versions = {
         "php": get_php_version(str(active_php_dir)),
-        "apache": get_apache_version(str(Path(stack_root) / "apache" / "bin")),
         "nginx": get_nginx_version(str(Path(stack_root) / "nginx")),
         "mysql": get_mysql_version(str(Path(stack_root) / "mysql" / "bin")),
     }

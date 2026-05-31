@@ -1,321 +1,152 @@
-# DevStack Project Docs
+# DevStack Project Documentation
 
 ## What This Project Is
 
-This project is a local development stack controller for Windows.
+DevStack Manager is a **portable local web development stack for Windows**. It provides:
 
-It has **two interfaces** for the same stack:
+1. A **Python/PySide6 desktop application** to control the stack
+2. A **PHP web portal + dashboard** served by the stack itself
+3. An **MCP server** so AI coding agents can interact with the stack
 
-1. a **desktop application** built with Python and PySide6
-2. a **web dashboard** served from the local stack itself
+The goal: run and manage WordPress, Laravel, Drupal, and plain PHP projects locally,
+with a clean UI and zero-reinstall portability.
 
-The goal is simple:
-
-- start the stack
-- stop the stack
-- restart the stack
-- check service status
-- open the main tools quickly
-
-This project is intentionally **not** an app installer, site provisioner, or WordPress manager anymore.
-
-## Main Features
-
-### Desktop app
-
-- Control Center page
-- Services page
-- Logs page
-- Settings page
-- quick open buttons for:
-  - Nginx
-  - Apache
-  - phpMyAdmin
-  - Web Interface
-
-### Web dashboard
-
-- overall stack status
-- start / stop / restart all
-- service list with per-service actions
-- quick links to main tools
-- optional logs section
+---
 
 ## Stack Services
 
-The stack is built around these services:
+| Service | Role | Default Port |
+|---------|------|--------------|
+| **Nginx** | Web server / entry point | 80 |
+| **PHP FastCGI** | Runs PHP (3 php-cgi processes) | 9000 |
+| **MariaDB** | Database | 3306 |
 
-- **Apache**
-- **Nginx**
-- **PHP FastCGI**
-- **MariaDB**
+"Start All" launches all three. There is no Apache — Nginx serves WordPress, Laravel,
+Drupal, and plain PHP directly (it's the standard modern WordPress stack).
 
-## Project Structure
+---
 
-```text
-portable-stack-plan/
-├─ devstack-app/
-│  ├─ assets/
-│  │  └─ icon assets for the desktop app
-│  ├─ config/
-│  │  └─ app-settings.json
-│  ├─ core/
-│  │  ├─ config.py
-│  │  ├─ log_reader.py
-│  │  ├─ service_manager.py
-│  │  ├─ status_reader.py
-│  │  └─ version_reader.py
-│  ├─ ui/
-│  │  ├─ main_window.py
-│  │  ├─ styles.py
-│  │  └─ tabs/
-│  │     ├─ overview_tab.py
-│  │     ├─ services_tab.py
-│  │     ├─ logs_tab.py
-│  │     └─ settings_tab.py
-│  ├─ Create Desktop Shortcut.ps1
-│  ├─ Run DevStack Manager.bat
-│  ├─ build.spec
-│  ├─ main.py
-│  └─ requirements.txt
-├─ devstack-template/
-│  ├─ _downloads/
-│  │  └─ downloaded stack archives
-│  ├─ apache/
-│  ├─ htdocs/
-│  │  ├─ dashboard/
-│  │  │  └─ index.php
-│  │  └─ phpmyadmin/
-│  ├─ mysql/
-│  ├─ nginx/
-│  ├─ php/
-│  ├─ start.bat
-│  ├─ start.cmd
-│  ├─ stop.bat
-│  └─ tools/
-│     ├─ control.ps1
-│     ├─ download-binaries.ps1
-│     └─ status.ps1
-├─ UI-RULES.md
-└─ PROJECT-DOCS.md
-```
-
-## Desktop App Architecture
+## Desktop App
 
 ### Entry point
+`devstack-app/main.py` — sets up the QApplication, applies the Windows style/palette,
+loads the icon, shows the main window, and displays the first-run welcome on first launch.
 
-- `devstack-app/main.py`
+### Tabs
+- **Control** (`overview_tab.py`) — status grid, Start/Stop/Restart all, quick links
+- **Websites** (`websites_tab.py`) — install sites, per-site PHP, Terminal/VS Code/Files/PHP Info, search
+- **Services** (`services_tab.py`) — per-service control rows
+- **Logs** (`logs_tab.py`) — log viewer with search + optional auto-refresh
+- **Settings** (`settings_tab.py`) — ports, PHP limits, debug mode, extensions, PHP downloader
 
-This file:
+### Dialogs
+- `cms_install_dialog.py` — Install Website (WordPress/Drupal/Laravel/PHP)
+- `customize_dialog.py` — UI customization (colors, radius, font size, button height)
+- `first_run_dialog.py` — one-time welcome checklist
 
-- creates the Qt application
-- applies the Windows-like style and palette
-- loads the app icon
-- opens the main window
+### Core layer (`devstack-app/core/`)
+- `config.py` — settings + site registry load/save, stack-root detection
+- `service_manager.py` — start/stop/restart, config sync, port-conflict detection
+- `status_reader.py` — reads service health via `status.ps1`
+- `version_reader.py` — reads binary versions (60s cache)
+- `log_reader.py` — tails log files on demand
+- `installer.py` — PHP version discovery, MySQL connection helper
+- `cms_installer.py` — WordPress/Drupal/Laravel/PHP install workers (QThread)
+- `php_manager.py` — PHP runtime downloader (QThread)
+- `utils.py` — `no_window_flags()`, `safe_extractall()`
 
-### Main window
+---
 
-- `devstack-app/ui/main_window.py`
+## Web Layer (`devstack-template/htdocs/`)
 
-This file:
+- **`index.php`** — DevStack Local Portal at `http://localhost/`. Lists detected sites as
+  cards (WordPress/Laravel/Drupal/PHP) and shows live service status by polling `dashboard/api.php`.
+- **`dashboard/index.php`** — read-only status dashboard.
+- **`dashboard/api.php`** — runs `status.ps1`, returns JSON. Polled by JS every 5s.
+- **`dashboard/style.css`** — shared dashboard styling.
 
-- creates the tab layout
-- owns the shared refresh worker
-- keeps status updates in sync across tabs
-- provides helper methods for opening URLs
+The web layer is **read-only** — service control lives in the desktop app.
 
-### Core layer
+### Nginx routing
+`nginx.conf` uses a `@site_fallback` block that routes `/<site>/<anything>` to that
+site's own `index.php`. This makes WordPress permalinks, Laravel routes, Drupal clean
+URLs, and plain-PHP 404 handling all work in subfolders.
 
-- `devstack-app/core/config.py`
-  - app settings loading and saving
-- `devstack-app/core/service_manager.py`
-  - starts, stops, and restarts services
-- `devstack-app/core/status_reader.py`
-  - reads stack status from PowerShell
-- `devstack-app/core/version_reader.py`
-  - reads service versions with caching
-- `devstack-app/core/log_reader.py`
-  - reads recent log output on demand
+---
 
-### UI layer
+## Portability — How It Works
 
-- `devstack-app/ui/styles.py`
-  - shared design tokens and styling helpers
-- `devstack-app/ui/tabs/overview_tab.py`
-  - control center
-- `devstack-app/ui/tabs/services_tab.py`
-  - direct per-service controls
-- `devstack-app/ui/tabs/logs_tab.py`
-  - manual log inspection
-- `devstack-app/ui/tabs/settings_tab.py`
-  - stack path, ports, refresh interval, density
+Config files (`nginx.conf`, `httpd.conf`, `my.ini`) store paths as a `DEVSTACK_ROOT`
+placeholder. On every start, `service_manager._sync_*_config()` regex-replaces the
+placeholder with the real absolute path of wherever the folder currently lives.
+`php.ini` uses a relative `extension_dir = "ext"`.
 
-## Web Dashboard Architecture
+Result: move the folder to any drive or machine, start the app, and every path is
+corrected automatically. **Never hardcode absolute paths in these config files.**
 
-### Dashboard entry point
+---
 
-- `devstack-template/htdocs/dashboard/index.php`
+## Performance
 
-This file:
+- **OPcache** enabled in each `php*/php.ini` (CLI off) — main WordPress speedup.
+- **MariaDB** tuned for dev: 256M buffer pool, `flush_log_at_trx_commit=2`, query cache off.
+- **Nginx** kept minimal — deliberately no gzip / tcp_nopush / open_file_cache, which
+  only add latency on localhost.
 
-- receives start/stop/restart actions from forms
-- calls PowerShell control scripts
-- reads service status from `status.ps1`
-- builds the quick links
-- optionally loads logs
-- renders the dashboard UI
+---
 
-### Stack scripts
+## Tools (`devstack-template/tools/`)
 
-- `devstack-template/tools/control.ps1`
-  - controls service start/stop/restart
-- `devstack-template/tools/status.ps1`
-  - returns JSON service health
-- `devstack-template/tools/download-binaries.ps1`
-  - helps fetch stack binaries
+- `status.ps1` — returns JSON service health (used by the app and `api.php`); also the
+  marker file `find_stack_root()` uses to locate the stack
+- `wp-cli.phar` — WP-CLI, used by the WordPress installer and the MCP server
 
-## How It Works
+---
 
-### Desktop flow
+## MCP Server (`devstack-mcp/server.py`)
 
-1. user opens the desktop app
-2. main window starts a shared refresh worker
-3. refresh worker reads:
-   - service status
-   - version information
-4. results are pushed into the UI tabs
-5. when the user clicks a control button:
-   - the app starts a background service worker
-   - the PowerShell / process logic runs
-   - the UI refreshes again after the action
+Exposes 13 tools to AI coding agents (Claude Code, Cursor, etc.): stack status, site
+list/info, log reading, service start/stop/restart, MySQL queries, database create/list,
+WP-CLI commands, PHP code execution, and PHP config inspection. Configured via the
+project's MCP settings; runs over stdio.
 
-### Web flow
+---
 
-1. user opens `/dashboard/`
-2. PHP reads current stack status from `status.ps1`
-3. page renders service rows and actions
-4. when the user submits an action form:
-   - PHP runs `control.ps1`
-   - page reloads with updated notice/state
+## Running
 
-## UI Standard
-
-The UI standard is defined in:
-
-- `UI-RULES.md`
-
-Important points from that document:
-
-- use a plain Windows 11 utility style
-- avoid decorative dashboard cards
-- prefer flat sections and rows
-- use one primary action per group
-- use color for status meaning only
-- keep logs secondary
-- keep settings plain and form-based
-
-## Dependencies
-
-Desktop app requirements:
-
-- `PySide6>=6.6.0`
-- `requests>=2.31.0`
-
-These are listed in:
-
-- `devstack-app/requirements.txt`
-
-## Running The Project
-
-### Run desktop app
-
-From `devstack-app/`:
-
-```bat
-Run DevStack Manager.bat
+### Desktop app
+```bash
+cd devstack-app
+python main.py
 ```
+Or `devstack-app/Run DevStack Manager.bat`.
 
-Optional shortcut helper:
+### Web portal
+After Start All: `http://localhost/`
 
-```powershell
-Create Desktop Shortcut.ps1
-```
+---
 
-### Run stack manually
+## Documentation Map
 
-From `devstack-template/`:
+| File | Purpose |
+|------|---------|
+| `README.md` | Quick start + overview |
+| `PROJECT-DOCS.md` | This file — full documentation |
+| `AGENTS.md` | AI agent context (architecture, conventions, gotchas) |
+| `UI-RULES.md` | Strict UI design rules |
+| `SECURITY_AUDIT.md` | Security findings (all fixed) |
+| `CODE_QUALITY_AUDIT.md` | Code quality findings (all fixed) |
+| `DX_AUDIT.md` | Developer experience findings |
 
-```bat
-start.bat
-stop.bat
-```
+---
 
-### Open web dashboard
+## Key Files to Read First
 
-After the stack is running:
-
-```text
-http://localhost/dashboard/
-```
-
-## Build / Packaging
-
-The desktop app includes:
-
-- `devstack-app/build.spec`
-
-This is a PyInstaller spec file for packaging the app into a Windows executable.
-
-Current packaging notes:
-
-- app entry: `main.py`
-- windowed app: `console=False`
-- icon: `assets/icon.ico`
-
-## Current Product Direction
-
-The current product direction is:
-
-- local stack control tool
-- desktop app + web dashboard
-- start/stop/open workflow
-- simple service management
-- optional logs
-
-The current product is **not** intended to include:
-
-- WordPress provisioning
-- app installation flows
-- bundled demo sites
-- decorative dashboard UI experiments
-
-## Files That Matter Most
-
-If someone new needs to understand the project quickly, read these first:
-
-1. `PROJECT-DOCS.md`
+1. `PROJECT-DOCS.md` / `AGENTS.md`
 2. `UI-RULES.md`
 3. `devstack-app/main.py`
 4. `devstack-app/ui/main_window.py`
 5. `devstack-app/core/service_manager.py`
 6. `devstack-app/core/status_reader.py`
-7. `devstack-template/tools/control.ps1`
-8. `devstack-template/tools/status.ps1`
-9. `devstack-template/htdocs/dashboard/index.php`
-
-## Current Notes
-
-- The desktop app and web dashboard now target the same simpler workflow.
-- The old WordPress/app-installer paths were removed.
-- The project still contains stack binaries and downloaded archives under `devstack-template/`.
-- The UI is being rebuilt around the rules in `UI-RULES.md`.
-
-## Summary
-
-This project is a Windows local stack control system with:
-
-- a Python desktop controller
-- a PHP web dashboard
-- shared service-control behavior
-- simplified UI rules
-- a clear focus on stack management instead of app/site installation
+7. `devstack-template/tools/status.ps1`
+8. `devstack-template/htdocs/index.php`

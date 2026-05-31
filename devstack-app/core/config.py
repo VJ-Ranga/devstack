@@ -58,17 +58,17 @@ def find_stack_root() -> str:
         "D:\\portable-stack",
     ]
     for p in candidates:
-        if (Path(p) / "tools" / "control.ps1").exists():
+        if (Path(p) / "tools" / "status.ps1").exists():
             return str(Path(p).resolve())
     return _resolve("../devstack-template")
 
 
 DEFAULT_SETTINGS = {
     "stack_root": find_stack_root(),
-    "apache_port": 8088,
     "nginx_port": 80,
     "php_port": 9000,
     "mysql_port": 3306,
+    "nginx_client_max_body_size": "128M",
     "auto_refresh_interval": 5,
     "php_timezone": "UTC",
     "start_with_windows": False,

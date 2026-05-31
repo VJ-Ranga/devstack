@@ -1,5 +1,5 @@
-from PySide6.QtCore import QThread, Qt, Signal
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtCore import QThread, Qt, Signal, QTimer
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from core.service_manager import restart, start, stop
 from ui.styles import FLUENT_GLYPHS, density_button_height, repolish, set_status_badge, set_status_frame
@@ -33,6 +33,17 @@ class OverviewTab(QWidget):
         self.quick_open_cards = []
         self.service_rows = {}
         self.version_labels = {}
+
+        # Busy-animation state (loading feedback while a start/stop/restart runs)
+        self._busy_timer = QTimer(self)
+        self._busy_timer.setInterval(350)
+        self._busy_timer.timeout.connect(self._tick_busy)
+        self._busy_phase = 0
+        self._busy_label_base = ""
+        self._busy_btn = None
+        self._busy_btn_base = ""
+        self._busy_verb = ""
+
         self._setup_ui()
 
     def _setup_ui(self):
@@ -96,9 +107,18 @@ class OverviewTab(QWidget):
         top_row.addLayout(actions)
         status_layout.addLayout(top_row)
 
-        self.summary_line = QLabel("Running 0 of 4 services")
+        self.summary_line = QLabel("Running 0 of 3 services")
         self.summary_line.setObjectName("MetaText")
         status_layout.addWidget(self.summary_line)
+
+        # Indeterminate progress bar — shown only while an action runs
+        self.busy_bar = QProgressBar()
+        self.busy_bar.setRange(0, 0)  # indeterminate (animated sweep)
+        self.busy_bar.setTextVisible(False)
+        self.busy_bar.setFixedHeight(4)
+        self.busy_bar.hide()
+        status_layout.addWidget(self.busy_bar)
+
         layout.addWidget(status_section)
 
         quick_label = QLabel("QUICK ACCESS")
@@ -109,10 +129,9 @@ class OverviewTab(QWidget):
         quick_grid.setHorizontalSpacing(8)
         quick_grid.setVerticalSpacing(8)
         quick_data = (
-            ("Open Nginx", "Port 80", "nginx", "nginx"),
-            ("Open Apache", "Port 8088", "apache", "apache"),
-            ("Open phpMyAdmin", "Database admin", "phpmyadmin", "phpmyadmin"),
-            ("Open Web Interface", "Dashboard", "dashboard", "dashboard"),
+            ("Open Site", "Local portal", "nginx", "nginx"),
+            ("phpMyAdmin", "Database admin", "phpmyadmin", "phpmyadmin"),
+            ("Dashboard", "Status monitor", "dashboard", "dashboard"),
         )
         for i, (title_text, subtitle_text, glyph, target) in enumerate(quick_data):
             card = QuickAccessCard(title_text, subtitle_text, glyph)
@@ -130,8 +149,7 @@ class OverviewTab(QWidget):
         service_grid.setVerticalSpacing(8)
 
         services_data = (
-            ("Apache", "apache", 8088, "Backend web server"),
-            ("Nginx", "nginx", 80, "Main web entry point"),
+            ("Nginx", "nginx", 80, "Web server"),
             ("PHP FastCGI", "php", 9000, "PHP runtime"),
             ("MariaDB", "mysql", 3306, "Database server"),
         )
@@ -148,7 +166,7 @@ class OverviewTab(QWidget):
             icon_box = QFrame()
             icon_box.setObjectName("StatusIconBox")
             set_status_frame(icon_box, "stopped")
-            icon_box.setFixedSize(28, 28)
+            icon_box.setFixedSize(32, 32)
 
             icon_layout = QVBoxLayout(icon_box)
             icon_layout.setContentsMargins(0, 0, 0, 0)
@@ -189,7 +207,7 @@ class OverviewTab(QWidget):
         versions_layout.setContentsMargins(16, 12, 16, 12)
         versions_layout.setHorizontalSpacing(12)
         versions_layout.setVerticalSpacing(6)
-        for row_index, (key, text) in enumerate((("apache", "Apache"), ("nginx", "Nginx"), ("php", "PHP"), ("mysql", "MariaDB"))):
+        for row_index, (key, text) in enumerate((("nginx", "Nginx"), ("php", "PHP"), ("mysql", "MariaDB"))):
             label = QLabel(text)
             label.setObjectName("RowTitle")
             value = QLabel("Not checked")
@@ -207,30 +225,60 @@ class OverviewTab(QWidget):
         if self._service_worker and self._service_worker.isRunning():
             return
         state_text = {
-            "start": ("Starting services", "Bringing the local stack online."),
-            "stop": ("Stopping services", "Shutting down all core services."),
-            "restart": ("Restarting services", "Refreshing the local stack."),
+            "start": ("Starting services", "Bringing the local stack online.", self.start_btn),
+            "stop": ("Stopping services", "Shutting down all core services.", self.stop_btn),
+            "restart": ("Restarting services", "Refreshing the local stack.", self.restart_btn),
         }
-        title, detail = state_text[action]
-        self.health_label.setText(title)
+        title, detail, btn = state_text[action]
         self.health_detail.setText(detail)
-        for btn in (self.start_btn, self.stop_btn, self.restart_btn):
-            btn.setEnabled(False)
+        for b in (self.start_btn, self.stop_btn, self.restart_btn):
+            b.setEnabled(False)
+
+        # Start the loading animation (progress bar + pulsing dots + button spinner)
+        self._start_busy(title, btn, {"start": "Starting", "stop": "Stopping", "restart": "Restarting"}[action])
+
+        # Drop previous finished worker safely before creating a new one
+        self._service_worker = None
         worker = ServiceWorker(self.main_window.get_stack_root(), action)
         worker.finished.connect(self._on_action_done)
-        worker.finished.connect(worker.deleteLater)
         self._service_worker = worker
         worker.start()
 
     def _on_action_done(self, result):
-        self._service_worker = None
+        # Do NOT null _service_worker here — see RefreshWorker note in main_window.py
+        self._stop_busy()
         for btn in (self.start_btn, self.stop_btn, self.restart_btn):
             btn.setEnabled(True)
         if not result.get("success"):
             from PySide6.QtWidgets import QMessageBox
-
             QMessageBox.warning(self, "Service Action Failed", result.get("error", "Unknown error"))
         self.main_window.notify_service_state_changed()
+
+    # ── Loading animation ───────────────────────────────────────────────────
+
+    def _start_busy(self, label_base: str, btn, verb: str):
+        self._busy_label_base = label_base
+        self._busy_btn = btn
+        self._busy_btn_base = btn.text() if btn else ""
+        self._busy_verb = verb
+        self._busy_phase = 0
+        self.busy_bar.show()
+        self._busy_timer.start()
+        self._tick_busy()
+
+    def _tick_busy(self):
+        dots = "." * (self._busy_phase % 4)
+        self.health_label.setText(self._busy_label_base + dots)
+        if self._busy_btn:
+            self._busy_btn.setText(self._busy_verb + dots)
+        self._busy_phase += 1
+
+    def _stop_busy(self):
+        self._busy_timer.stop()
+        self.busy_bar.hide()
+        if self._busy_btn:
+            self._busy_btn.setText(self._busy_btn_base)
+            self._busy_btn = None
 
     def apply_refresh(self, status: dict, versions: dict):
         running = 0
@@ -245,16 +293,15 @@ class OverviewTab(QWidget):
             self.health_detail.setText("One or more services is only partially available.")
         else:
             self.health_label.setText("All services stopped")
-            self.health_detail.setText("Start the stack to use Apache, Nginx, PHP, and MariaDB.")
+            self.health_detail.setText("Start the stack to use Nginx, PHP, and MariaDB.")
 
-        # Dynamically enable/disable control buttons based on overall status
         if overall == "running":
             self.start_btn.setEnabled(False)
             self.stop_btn.setEnabled(True)
         elif overall == "stopped":
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(False)
-        else: # partial state - allow starting missing ones or stopping all
+        else:
             self.start_btn.setEnabled(True)
             self.stop_btn.setEnabled(True)
 
@@ -269,6 +316,12 @@ class OverviewTab(QWidget):
             if key in self.service_rows:
                 parts = self.service_rows[key]
                 parts["badge"].setText("Needs Attention" if state == "partial" else state.title())
+                parts["badge"].setToolTip(
+                    "Process is running but the port is not yet listening.\n"
+                    "This may resolve in a few seconds, or indicate a config error.\n"
+                    "Check the Logs tab for details."
+                    if state == "partial" else ""
+                )
                 parts["icon"].setText(glyph_map[state])
                 set_status_frame(parts["row"], state)
                 set_status_frame(parts["icon_box"], state)

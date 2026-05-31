@@ -1,14 +1,6 @@
 from pathlib import Path
 
-LOG_PATHS = {
-    "apache": ("Apache", ["apache/logs/error_log", "apache/logs/access.log"]),
-    "nginx": ("Nginx", ["nginx/logs/error.log", "nginx/logs/access.log"]),
-    "mysql": ("MariaDB", ["mysql/data/*.err"]),
-}
-
 LOG_PATHS_FLAT = {
-    "apache_error": ("Apache Error", ["apache/logs/error_log"]),
-    "apache_access": ("Apache Access", ["apache/logs/access.log"]),
     "nginx_error": ("Nginx Error", ["nginx/logs/error.log"]),
     "nginx_access": ("Nginx Access", ["nginx/logs/access.log"]),
     "mysql_error": ("MariaDB Error", ["mysql/data/*.err"]),
@@ -27,13 +19,7 @@ def tail_file(path: Path, n: int = 100) -> str:
 
 
 def _resolve_glob(base: Path, pattern: str) -> list[Path]:
-    if "*" in pattern:
-        matches = list(base.glob(pattern))
-        return matches
-    p = base / pattern
-    if p.exists():
-        return [p]
-    return []
+    return list(base.glob(pattern))
 
 
 def get_log(stack_root: str, log_key: str, n: int = 100) -> str:

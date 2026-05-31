@@ -3,13 +3,9 @@ import time
 import re
 from pathlib import Path
 
+from core.utils import no_window_flags as _flags
+
 SERVICES = {
-    "apache": {
-        "name": "Apache", "process": "httpd.exe", "port": 8088,
-        "exe": "apache/bin/httpd.exe",
-        "args": ["-d", "{root}/apache"],
-        "wd": "{root}/apache/bin",
-    },
     "nginx": {
         "name": "Nginx", "process": "nginx.exe", "port": 80,
         "exe": "nginx/nginx.exe",
@@ -30,12 +26,8 @@ SERVICES = {
     },
 }
 
-
-def _flags():
-    f = 0
-    if hasattr(subprocess, "CREATE_NO_WINDOW"):
-        f |= subprocess.CREATE_NO_WINDOW
-    return f
+# Order services start in: database first, then PHP, then the web server.
+START_ORDER = ["mysql", "php", "nginx"]
 
 
 def _resolve(root: str, template: str) -> str:
@@ -68,26 +60,6 @@ def _kill(exe_name: str) -> None:
         time.sleep(1)
 
 
-def _stop_apache_graceful(stack_root: str) -> None:
-    httpd = Path(stack_root) / "apache" / "bin" / "httpd.exe"
-    if not httpd.exists():
-        return
-    try:
-        subprocess.run(
-            [str(httpd), "-k", "shutdown", "-d", str(Path(stack_root) / "apache")],
-            capture_output=True,
-            text=True,
-            timeout=8,
-            creationflags=_flags(),
-        )
-    except Exception:
-        pass
-    for _ in range(8):
-        if not _is_running("httpd.exe"):
-            return
-        time.sleep(0.5)
-
-
 def _wait_for(name: str, timeout: int) -> bool:
     for _ in range(timeout):
         if _is_running(name):
@@ -96,56 +68,65 @@ def _wait_for(name: str, timeout: int) -> bool:
     return False
 
 
-def _sync_nginx_config(stack_root: str, nginx_port: int) -> None:
+def _find_port_user(port: int) -> str:
+    """Return 'ProcessName (PID X)' that holds the given TCP port, or empty string."""
+    try:
+        r = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True, text=True, timeout=5,
+            creationflags=_flags(),
+        )
+        for line in r.stdout.splitlines():
+            parts = line.split()
+            if len(parts) >= 5 and f":{port}" in parts[1] and "LISTENING" in parts[3]:
+                pid = parts[4]
+                r2 = subprocess.run(
+                    ["tasklist", "/fi", f"PID eq {pid}", "/nh", "/fo", "CSV"],
+                    capture_output=True, text=True, timeout=3,
+                    creationflags=_flags(),
+                )
+                out = r2.stdout.strip()
+                if out and "No tasks" not in out:
+                    name = out.split(",")[0].strip('"')
+                    return f"{name} (PID {pid})"
+    except Exception:
+        pass
+    return ""
+
+
+def _sync_nginx_config(stack_root: str, nginx_port: int, client_max_body_size: str) -> str | None:
     nginx_conf = Path(stack_root) / "nginx" / "conf" / "nginx.conf"
     if not nginx_conf.exists():
-        return
+        return None
     try:
         content = nginx_conf.read_text(encoding="utf-8")
         escaped_root = stack_root.replace("\\", "/")
         content = re.sub(r'\blisten\s+\d+;', f'listen       {nginx_port};', content)
-        content = re.sub(r'\broot\s+[^;]+htdocs;', f'root   {escaped_root}/htdocs;', content)
+        content = re.sub(
+            r'^\s*#?\s*root\s+[^\n;]+htdocs;',
+            f'        root   {escaped_root}/htdocs;',
+            content, flags=re.MULTILINE,
+        )
+
+        size = (client_max_body_size or "128M").strip()
+        if re.search(r'\bclient_max_body_size\s+[^;]+;', content):
+            content = re.sub(r'\bclient_max_body_size\s+[^;]+;', f'client_max_body_size {size};', content)
+        else:
+            content = re.sub(
+                r'(default_type\s+application/octet-stream;)',
+                r'\1\n\n    client_max_body_size ' + size + ';',
+                content, count=1,
+            )
         nginx_conf.write_text(content, encoding="utf-8")
+        return None
     except Exception as e:
-        print(f"Error syncing Nginx config: {e}")
+        return f"Nginx config sync failed: {e}"
 
 
-def _sync_apache_config(stack_root: str, apache_port: int, active_php: str) -> None:
-    httpd_conf = Path(stack_root) / "apache" / "conf" / "httpd.conf"
-    if not httpd_conf.exists():
-        return
-    try:
-        content = httpd_conf.read_text(encoding="utf-8")
-        escaped_root = stack_root.replace("\\", "/")
-        content = re.sub(r'\bListen\s+\d+', f'Listen {apache_port}', content)
-        content = re.sub(r'\bServerName\s+localhost:\d+', f'ServerName localhost:{apache_port}', content)
-        content = re.sub(r'Define\s+SRVROOT\s+"[^"]+"', f'Define SRVROOT "{escaped_root}/apache"', content)
-        content = re.sub(r'DocumentRoot\s+"[^"]+"', f'DocumentRoot "{escaped_root}/htdocs"', content)
-        content = re.sub(r'<Directory\s+"[^"]+htdocs">', f'<Directory "{escaped_root}/htdocs">', content)
-        
-        dll_name = "php8apache2_4.dll"
-        module_name = "php_module"
-        if "php7" in active_php:
-            dll_name = "php7apache2_4.dll"
-            module_name = "php7_module"
-        elif "php8" in active_php or active_php == "php":
-            dll_name = "php8apache2_4.dll"
-            module_name = "php_module"
-            
-        dll_path = f"{escaped_root}/{active_php}/{dll_name}"
-        
-        content = re.sub(r'LoadModule\s+php\d?_module\s+"[^"]+"', f'LoadModule {module_name} "{dll_path}"', content)
-        content = re.sub(r'PHPIniDir\s+"[^"]+"', f'PHPIniDir "{escaped_root}/{active_php}"', content)
-        
-        httpd_conf.write_text(content, encoding="utf-8")
-    except Exception as e:
-        print(f"Error syncing Apache config: {e}")
-
-
-def _sync_mysql_config(stack_root: str, mysql_port: int) -> None:
+def _sync_mysql_config(stack_root: str, mysql_port: int) -> str | None:
     my_ini = Path(stack_root) / "mysql" / "my.ini"
     if not my_ini.exists():
-        return
+        return None
     try:
         content = my_ini.read_text(encoding="utf-8")
         escaped_root = stack_root.replace("\\", "/")
@@ -153,19 +134,19 @@ def _sync_mysql_config(stack_root: str, mysql_port: int) -> None:
         content = re.sub(r'datadir\s*=\s*[^\n\r]+', f'datadir = "{escaped_root}/mysql/data"', content)
         content = re.sub(r'\bport\s*=\s*\d+', f'port = {mysql_port}', content)
         my_ini.write_text(content, encoding="utf-8")
+        return None
     except Exception as e:
-        print(f"Error syncing MySQL config: {e}")
+        return f"MySQL config sync failed: {e}"
 
 
 def start(stack_root: str, service: str = "all") -> dict:
     from core.config import load_settings
     settings = load_settings()
-    apache_port = int(settings.get("apache_port", 8088))
     nginx_port = int(settings.get("nginx_port", 80))
     php_port = int(settings.get("php_port", 9000))
     mysql_port = int(settings.get("mysql_port", 3306))
+    nginx_client_max_body_size = settings.get("nginx_client_max_body_size", "128M")
 
-    SERVICES["apache"]["port"] = apache_port
     SERVICES["nginx"]["port"] = nginx_port
     SERVICES["php"]["port"] = php_port
     SERVICES["mysql"]["port"] = mysql_port
@@ -180,23 +161,20 @@ def start(stack_root: str, service: str = "all") -> dict:
     SERVICES["php"]["args"] = ["-b", f"127.0.0.1:{php_port}", "-c", f"{{root}}/{active_php}/php.ini"]
     SERVICES["php"]["wd"] = f"{{root}}/{active_php}"
 
-    # Dynamically auto-sync web servers and database absolute paths and port bindings on disk
-    _sync_nginx_config(stack_root, nginx_port)
-    _sync_apache_config(stack_root, apache_port, active_php)
-    _sync_mysql_config(stack_root, mysql_port)
+    # Sync configs to disk (corrects portable paths + ports) before starting
+    sync_errors = [e for e in (
+        _sync_nginx_config(stack_root, nginx_port, nginx_client_max_body_size),
+        _sync_mysql_config(stack_root, mysql_port),
+    ) if e]
+    if sync_errors:
+        return {"success": False, "error": "; ".join(sync_errors)}
 
-    if service == "all":
-        keys = ["mysql", "php", "apache", "nginx"]
-    else:
-        keys = [service]
+    keys = START_ORDER if service == "all" else [service]
 
     for k in keys:
-        svc = SERVICES.get(k)
-        if not svc:
+        if k not in SERVICES:
             return {"success": False, "error": f"Unknown service: {k}"}
-        if k == "apache":
-            _stop_apache_graceful(stack_root)
-        _kill(svc["process"])
+        _kill(SERVICES[k]["process"])
 
     time.sleep(1)
 
@@ -204,6 +182,7 @@ def start(stack_root: str, service: str = "all") -> dict:
     errors = []
     for k in keys:
         svc = SERVICES[k]
+        # exe paths are relative to stack_root (no {root} placeholder), so prepend it
         exe = Path(stack_root) / _resolve(stack_root, svc["exe"])
         if not exe.exists():
             errors.append(f"{svc['name']} binary not found: {exe}")
@@ -211,35 +190,43 @@ def start(stack_root: str, service: str = "all") -> dict:
         args = [_resolve(stack_root, a) for a in svc["args"]]
         wd = _resolve(stack_root, svc["wd"])
         try:
-            # Try to start the service with job breakaway so it persists if the manager closes
             flags = 0
             if hasattr(subprocess, "CREATE_NO_WINDOW"):
                 flags |= subprocess.CREATE_NO_WINDOW
             if hasattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB"):
                 flags |= subprocess.CREATE_BREAKAWAY_FROM_JOB
-            try:
-                p = subprocess.Popen(
-                    [str(exe)] + args,
-                    cwd=wd,
-                    creationflags=flags,
-                )
-            except PermissionError:
-                # Fallback to starting without breakaway if restricted by the parent job
-                flags = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
-                p = subprocess.Popen(
-                    [str(exe)] + args,
-                    cwd=wd,
-                    creationflags=flags,
-                )
-            started.append((k, svc, p))
+
+            # php-cgi: PHP_FCGI_CHILDREN is ignored on Windows — spawn 3 independent
+            # php-cgi processes on the same port so one crash doesn't take PHP down.
+            env = None
+            if k == "php":
+                import os as _os
+                env = _os.environ.copy()
+                env["PHP_FCGI_MAX_REQUESTS"] = "0"
+
+            spawn_count = 3 if k == "php" else 1
+            last_p = None
+            for _ in range(spawn_count):
+                try:
+                    last_p = subprocess.Popen([str(exe)] + args, cwd=wd, creationflags=flags, env=env)
+                except PermissionError:
+                    fallback = subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0
+                    last_p = subprocess.Popen([str(exe)] + args, cwd=wd, creationflags=fallback, env=env)
+            started.append((k, svc, last_p))
         except Exception as e:
             errors.append(f"{svc['name']}: {e}")
 
-    timeouts = {"mysql": 15, "php": 8, "apache": 8, "nginx": 5}
+    timeouts = {"mysql": 15, "php": 8, "nginx": 5}
     for k, svc, p in started:
-        timeout = timeouts.get(k, 8)
-        if not _wait_for(svc["process"], timeout):
-            errors.append(f"{svc['name']} failed to start. Check port {svc['port']} for conflicts.")
+        if not _wait_for(svc["process"], timeouts.get(k, 8)):
+            port_user = _find_port_user(svc["port"])
+            if port_user:
+                errors.append(
+                    f"{svc['name']} failed to start — port {svc['port']} is already in use by "
+                    f"{port_user}. Stop that process or change the port in Settings."
+                )
+            else:
+                errors.append(f"{svc['name']} failed to start. Check port {svc['port']} for conflicts.")
             try:
                 p.kill()
             except Exception:
@@ -252,15 +239,13 @@ def start(stack_root: str, service: str = "all") -> dict:
 
 def stop(stack_root: str, service: str = "all") -> dict:
     if service == "all":
-        names = [svc["process"] for svc in SERVICES.values() if svc.get("process")]
+        names = [svc["process"] for svc in SERVICES.values()]
     else:
         svc = SERVICES.get(service)
         if not svc:
             return {"success": False, "error": f"Unknown service: {service}"}
         names = [svc["process"]]
     for name in names:
-        if name.lower() == "httpd.exe":
-            _stop_apache_graceful(stack_root)
         _kill(name)
     return {"success": True}
 

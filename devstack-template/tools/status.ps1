@@ -1,5 +1,4 @@
 param(
-    [int]$apachePort = 8088,
     [int]$nginxPort = 80,
     [int]$phpPort = 9000,
     [int]$mysqlPort = 3306
@@ -20,7 +19,6 @@ function Test-Process {
 }
 
 $services = @(
-    @{ key = "apache"; name = "Apache"; process = "httpd"; port = $apachePort },
     @{ key = "nginx"; name = "Nginx"; process = "nginx"; port = $nginxPort },
     @{ key = "php"; name = "PHP FastCGI"; process = "php-cgi"; port = $phpPort },
     @{ key = "mysql"; name = "MariaDB"; process = "mysqld"; port = $mysqlPort }

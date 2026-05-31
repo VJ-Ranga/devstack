@@ -1,0 +1,46 @@
+---
+description: DevStack Manager project rules
+globs: ["devstack-app/**/*.py", "devstack-template/htdocs/**/*.php"]
+---
+
+# DevStack Project Rules
+
+Full context is in `AGENTS.md` at the repo root. Read it first.
+
+## Python rules
+
+- All subprocess calls must pass `creationflags=no_window_flags()` from `core/utils.py`
+- Never use bare `zipfile.extractall()` — use `safe_extractall()` from `core/utils.py`
+- Never store `admin_pass` in any config file or sites.json
+- QThread workers: never null the worker reference inside `finished` signal handlers
+- Load settings once per worker run: `self._cached_settings = load_settings()` in `run()`
+- Use `str | None` union syntax — Python 3.10+ minimum
+
+## UI rules
+
+- Style target: Windows 11 utility (calm, flat, scannable) — see `UI-RULES.md`
+- One primary button per group. Secondary = neutral border. Destructive = red fill only.
+- Status colors: green=running, amber=partial, red=stopped. Don't flood areas with color.
+- `QFont()` takes a single family name — NOT a CSS comma-separated font list
+- All spinboxes use `GuardedSpinBox`, all settings comboboxes use `GuardedComboBox`
+  (react to scroll only when the mouse is over them)
+
+## Web layer rules
+
+- The web dashboard is READ-ONLY — never add service start/stop controls to it
+- `dashboard/api.php` runs `status.ps1` and returns JSON; the portal/dashboard poll it via JS
+- Always use `htmlspecialchars()` before echoing any variable into HTML
+- Never use `shell_exec()`/`exec()` with unvalidated user input
+
+## Config / portability rules
+
+- Never hardcode absolute paths in nginx.conf / httpd.conf / my.ini — use `DEVSTACK_ROOT` placeholder
+- `php.ini` uses relative `extension_dir = "ext"`
+- Never add nginx perf directives that hurt localhost (gzip, tcp_nopush, open_file_cache)
+
+## Security rules (already applied — maintain them)
+
+- Zip Slip protection in all extraction paths
+- SHA256 verification field exists in PHP version entries (populate from php.net)
+- No `--allow-root` in WP-CLI commands
+- No `shell=True` in Python subprocess

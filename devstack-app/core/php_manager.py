@@ -1,17 +1,68 @@
+import hashlib
 import os
 import shutil
 import urllib.request
 import zipfile
 from pathlib import Path
-from PySide6.QtCore import QThread, Signal
 
+from PySide6.QtCore import QThread, Signal
+from core.utils import safe_extractall as _safe_extractall
+
+# SHA256 hashes sourced from https://windows.php.net/download/ (verify before updating versions)
 STABLE_PHP_VERSIONS = [
-    {"version": "PHP 8.3.7 (x64 Thread Safe)", "folder": "php83", "url": "https://windows.php.net/downloads/releases/archives/php-8.3.7-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.2.19 (x64 Thread Safe)", "folder": "php82", "url": "https://windows.php.net/downloads/releases/archives/php-8.2.19-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.1.28 (x64 Thread Safe)", "folder": "php81", "url": "https://windows.php.net/downloads/releases/archives/php-8.1.28-Win32-vs16-x64.zip"},
-    {"version": "PHP 8.0.30 (x64 Thread Safe)", "folder": "php80", "url": "https://windows.php.net/downloads/releases/archives/php-8.0.30-Win32-vs16-x64.zip"},
-    {"version": "PHP 7.4.33 (x64 Thread Safe)", "folder": "php74", "url": "https://windows.php.net/downloads/releases/archives/php-7.4.33-Win32-vc15-x64.zip"},
+    {
+        "version": "PHP 8.4.21 (x64 Thread Safe)", "folder": "php84",
+        "url": "https://windows.php.net/downloads/releases/php-8.4.21-Win32-vs17-x64.zip",
+        "sha256": None,  # populate from https://windows.php.net/downloads/releases/php-8.4.21-Win32-vs17-x64.zip.sha256
+    },
+    {
+        "version": "PHP 8.3.7 (x64 Thread Safe)", "folder": "php83",
+        "url": "https://windows.php.net/downloads/releases/archives/php-8.3.7-Win32-vs16-x64.zip",
+        "sha256": None,
+        "eol_warning": "PHP 8.3 reached end of active support. Security fixes only.",
+    },
+    {
+        "version": "PHP 8.2.19 (x64 Thread Safe)", "folder": "php82",
+        "url": "https://windows.php.net/downloads/releases/archives/php-8.2.19-Win32-vs16-x64.zip",
+        "sha256": None,
+        "eol_warning": "PHP 8.2 reached end of active support. Security fixes only.",
+    },
+    {
+        "version": "PHP 8.1.28 (x64 Thread Safe)", "folder": "php81",
+        "url": "https://windows.php.net/downloads/releases/archives/php-8.1.28-Win32-vs16-x64.zip",
+        "sha256": None,
+        "eol_warning": "PHP 8.1 is end-of-life. No further security patches.",
+    },
+    {
+        "version": "PHP 8.0.30 (x64 Thread Safe)", "folder": "php80",
+        "url": "https://windows.php.net/downloads/releases/archives/php-8.0.30-Win32-vs16-x64.zip",
+        "sha256": None,
+        "eol_warning": "PHP 8.0 is end-of-life. No further security patches.",
+    },
+    {
+        "version": "PHP 7.4.33 (x64 Thread Safe)", "folder": "php74",
+        "url": "https://windows.php.net/downloads/releases/archives/php-7.4.33-Win32-vc15-x64.zip",
+        "sha256": None,
+        "eol_warning": "⚠ PHP 7.4 is end-of-life with known unpatched CVEs. Use only for legacy compatibility testing.",
+    },
 ]
+
+
+from core.utils import safe_extractall as _safe_extractall
+
+
+def _verify_sha256(path: Path, expected: str) -> None:
+    """Raise if file SHA256 does not match expected hex digest."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    actual = h.hexdigest()
+    if actual.lower() != expected.lower():
+        raise RuntimeError(
+            f"SHA256 mismatch!\n  expected: {expected}\n  got:      {actual}\n"
+            "The downloaded file may be corrupted or tampered with."
+        )
 
 
 class PHPDownloadWorker(QThread):
@@ -68,11 +119,18 @@ class PHPDownloadWorker(QThread):
                                 self.log_emitted.emit(f"Downloaded {downloaded // 1024} KB of {total_size // 1024} KB ({current_pct}%)")
                                 last_logged_pct = current_pct
 
-            self.log_emitted.emit("Download complete. Extracting package archive...")
+            self.log_emitted.emit("Download complete. Verifying integrity...")
+            expected_sha256 = self.version_data.get("sha256")
+            if expected_sha256:
+                _verify_sha256(zip_path, expected_sha256)
+                self.log_emitted.emit("SHA256 checksum verified OK.")
+            else:
+                self.log_emitted.emit("[WARNING] No SHA256 hash configured for this version — skipping integrity check.")
+
             self.progress.emit("Extracting PHP package...", 80)
             os.makedirs(target_folder, exist_ok=True)
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall(target_folder)
+                _safe_extractall(zip_ref, target_folder)
             self.log_emitted.emit(f"Extracted zip contents to {target_folder}")
 
             if zip_path.exists():

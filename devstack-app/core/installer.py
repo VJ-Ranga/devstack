@@ -1,6 +1,7 @@
 import subprocess
 from pathlib import Path
 
+from core.utils import no_window_flags
 from core.version_reader import get_php_version
 
 
@@ -40,7 +41,7 @@ class SubprocessSQLConnection:
             cmd,
             capture_output=True,
             text=True,
-            creationflags=(subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0),
+            creationflags=no_window_flags(),
             timeout=15,
         )
         if res.returncode != 0:

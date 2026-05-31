@@ -1,18 +1,17 @@
 from pathlib import Path
 from core.config import load_settings
 
-FONT_FAMILY = '"Segoe UI"'
-MONO_FONT = '"Cascadia Code", "Consolas"'
-
-_THEME_PATH = Path(__file__).with_name("theme.qss")
+MONO_FONT = "Consolas"
 
 
 def density_button_height(density: str) -> int:
-    return 25 if density == "compact" else 30
-
-
-def _tab_vpad(density: str) -> int:
-    return 8 if density == "compact" else 10
+    """Return button height based on density, with optional user override from settings."""
+    default = 25 if density == "compact" else 30
+    try:
+        h = int(load_settings().get("btn_height", default))
+        return h if 24 <= h <= 56 else default
+    except Exception:
+        return default
 
 
 def _adjust_hex_color(hex_str: str, amount: int) -> str:
@@ -45,21 +44,8 @@ def build_stylesheet(density: str = "comfortable", theme: str = "light") -> str:
     # Load dynamic UI customizations from settings.json
     settings = load_settings()
     
-    # 1. Custom Button Height / Paddings
-    btn_height = max(25, int(settings.get("btn_height", density_button_height(density))))
-    qss = qss.replace("{{BUTTON_HEIGHT}}", str(btn_height))
-    
-    # Custom Button Padding / Spacing inside the QSS
-    btn_padding_v = settings.get("btn_padding_v", 6)
-    btn_padding_h = settings.get("btn_padding_h", 16)
-    qss = qss.replace("padding: 6px 14px;", f"padding: {btn_padding_v}px {btn_padding_h}px;")
-    
-    # Button Margin gaps
-    btn_margin_v = settings.get("btn_margin_v", 4)
-    btn_margin_h = settings.get("btn_margin_h", 14)
-    qss = qss.replace("margin: 3px 12px;", f"margin: {btn_margin_v}px {btn_margin_h}px;")
-    
-    qss = qss.replace("{{TAB_VPAD}}", str(_tab_vpad(density)))
+    # 1. Button height (the only working dynamic replacement in the QSS)
+    qss = qss.replace("{{BUTTON_HEIGHT}}", str(density_button_height(density)))
     
     # 2. Custom Primary Accent Color (Orange theme color replacement)
     accent_color = settings.get("accent_color", "#E55B3C")
@@ -69,8 +55,6 @@ def build_stylesheet(density: str = "comfortable", theme: str = "light") -> str:
     qss = qss.replace("#E55B3C", accent_color)
     qss = qss.replace("#CC4E30", hover_color)
     qss = qss.replace("#B23F23", pressed_color)
-    # Also adjust secondary accent buttons (like Nginx/MariaDB badges, etc.)
-    qss = qss.replace("#D94E34", _adjust_hex_color(accent_color, -10))
     
     # 3. Custom Window Backgrounds
     custom_bg = settings.get("app_bg_color", "")
@@ -79,29 +63,26 @@ def build_stylesheet(density: str = "comfortable", theme: str = "light") -> str:
     
     if theme == "light":
         if custom_bg:
-            qss = qss.replace("#F5F3F0", custom_bg)
+            qss = qss.replace("#F3F3F3", custom_bg)
         if custom_sidebar:
-            qss = qss.replace("#EBEBE6", custom_sidebar)
+            qss = qss.replace("#F9F9F9", custom_sidebar)
         if custom_card:
             qss = qss.replace("#FFFFFF", custom_card)
-    else: # dark theme
-        if custom_bg:
-            qss = qss.replace("#151413", custom_bg)
-        if custom_sidebar:
-            qss = qss.replace("#0C0B0A", custom_sidebar)
+    else:  # dark theme — app bg and sidebar share #202020 token; one replacement covers both
+        if custom_bg or custom_sidebar:
+            qss = qss.replace("#202020", custom_bg or custom_sidebar)
         if custom_card:
-            qss = qss.replace("#201E1D", custom_card)
+            qss = qss.replace("#2C2C2C", custom_card)
             
     # 4. Custom Border Radius
-    card_radius = settings.get("card_radius", 16)
-    btn_radius = settings.get("btn_radius", 8)
-    qss = qss.replace("border-radius: 16px;", f"border-radius: {card_radius}px;")
-    qss = qss.replace("border-radius: 10px;", f"border-radius: {int(card_radius*0.6)}px;")
-    qss = qss.replace("border-radius: 8px;", f"border-radius: {btn_radius}px;")
-    qss = qss.replace("border-radius: 6px;", f"border-radius: {int(btn_radius*0.75)}px;")
+    card_radius = settings.get("card_radius", 8)
+    btn_radius = settings.get("btn_radius", 4)
+    qss = qss.replace("border-radius: 8px;", f"border-radius: {card_radius}px;")
+    qss = qss.replace("border-radius: 6px;", f"border-radius: {max(2, card_radius - 2)}px;")
+    qss = qss.replace("border-radius: 4px;", f"border-radius: {btn_radius}px;")
     
     # 5. Custom Font Size
-    base_font_size = settings.get("base_font_size", 13)
+    base_font_size = settings.get("base_font_size", 14)
     qss = qss.replace("font-size: 13px;", f"font-size: {base_font_size}px;")
     qss = qss.replace("font-size: 12px;", f"font-size: {base_font_size-1}px;")
     qss = qss.replace("font-size: 11px;", f"font-size: {max(9, base_font_size-2)}px;")
@@ -118,22 +99,23 @@ def repolish(widget):
     widget.update()
 
 
-def set_status_frame(widget, status: str):
+def set_status(widget, status: str):
+    """Apply a status property and repolish. Used for both frames and badges."""
     widget.setProperty("status", status)
     repolish(widget)
 
 
-def set_status_badge(widget, status: str):
-    widget.setProperty("status", status)
-    repolish(widget)
+# Aliases kept for backwards compatibility with existing tab code
+set_status_frame = set_status
+set_status_badge = set_status
 
 
 FLUENT_GLYPHS = {
-    "nginx": "🌐",
-    "apache": "🖥️",
-    "phpmyadmin": "💾",
-    "dashboard": "🏠",
-    "running": "🟢",
-    "stopped": "🔴",
-    "partial": "🟡",
+    "nginx":      "",  # Globe
+    "phpmyadmin": "",  # Library/Storage (MDL2 — Win10 safe)
+    "php":        "",  # Code
+    "dashboard":  "",  # Home
+    "running":    "",  # CheckMark
+    "stopped":    "",  # Cancel
+    "partial":    "",  # Warning
 }

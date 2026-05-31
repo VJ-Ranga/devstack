@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "devstack": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["devstack-mcp/server.py"],
+      "cwd": "D:/Project/portable-stack-plan"
+    }
+  }
+}
